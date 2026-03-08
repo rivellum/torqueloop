@@ -6,6 +6,7 @@ import { Zap, ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 import { OnboardingState, DEFAULT_STATE, STEP_NAMES, STEP_DESCRIPTIONS } from '@/types/onboarding'
 import { StepGoals } from './steps/step-goals'
 import { StepTracking } from './steps/step-tracking'
+import { StepOutcomes } from './steps/step-outcomes'
 import { StepChannels } from './steps/step-channels'
 import { StepPersonas } from './steps/step-personas'
 import { StepMessaging } from './steps/step-messaging'
@@ -24,7 +25,7 @@ export function OnboardingWizard({ onBack }: WizardProps) {
   const [aiThinking, setAiThinking] = useState(false)
   const [aiInsight, setAiInsight] = useState<string | null>(null)
 
-  const totalSteps = 8
+  const totalSteps = 9
   const progress = ((step + 1) / totalSteps) * 100
 
   const updateState = useCallback(<K extends keyof OnboardingState>(
@@ -55,12 +56,13 @@ export function OnboardingWizard({ onBack }: WizardProps) {
       // Trigger AI insight for the new step
       const insights: Record<number, string> = {
         1: "Based on your goals, I'll recommend the best tracking system. Most businesses your size get the most value from a simple CRM or even a well-structured spreadsheet to start.",
-        2: "Let's look at what's worked and what hasn't. Understanding your channel history helps me avoid repeating what failed and double down on what converted.",
-        3: "Now I'm going to help you think about who you're really trying to reach. The difference between a good campaign and a great one is persona specificity.",
-        4: "This is where it gets powerful. I'll map emotional triggers to your personas using frameworks that drive action — not just awareness, but conversion.",
-        5: "Based on your personas and messaging, I can see which channels will give you the best return. Let me build a budget-optimized channel mix.",
-        6: "I've compiled everything into a strategy brief. Review it carefully — this is your marketing blueprint for the next 30 days.",
-        7: "Almost there. Once you approve, I'll start generating creatives, building landing pages, and setting up campaigns across your chosen channels."
+        2: "This is the most important step. When we know what a win costs you versus what it's worth, I can optimize every creative, channel, and dollar toward outcomes that actually move your business.",
+        3: "Let's look at what's worked and what hasn't. Understanding your channel history helps me avoid repeating what failed and double down on what converted.",
+        4: "Now I'm going to help you think about who you're really trying to reach. The difference between a good campaign and a great one is persona specificity.",
+        5: "This is where it gets powerful. I'll map emotional triggers to your personas using frameworks that drive action — not just awareness, but conversion.",
+        6: "Based on your personas and messaging, I can see which channels will give you the best return. Let me build a budget-optimized channel mix.",
+        7: "I've compiled everything into a strategy brief. Review it carefully — this is your marketing blueprint for the next 30 days.",
+        8: "Almost there. Once you approve, I'll start generating creatives, building landing pages, and setting up campaigns across your chosen channels."
       }
       if (insights[nextStep]) {
         simulateAi(insights[nextStep], 1200 + Math.random() * 800)
@@ -78,6 +80,7 @@ export function OnboardingWizard({ onBack }: WizardProps) {
   const steps = [
     <StepGoals state={state} update={(v) => updateState('goals', v)} onAiInsight={simulateAi} />,
     <StepTracking state={state} update={(v) => updateState('tracking', v)} />,
+    <StepOutcomes state={state} update={(v) => updateState('outcomes', v)} onAiInsight={simulateAi} />,
     <StepChannels state={state} update={(v) => updateState('channels', v)} />,
     <StepPersonas state={state} update={(v) => updateState('personas', v)} onAiInsight={simulateAi} />,
     <StepMessaging state={state} update={(v) => updateState('messaging', v)} onAiInsight={simulateAi} />,
@@ -179,6 +182,7 @@ export function OnboardingWizard({ onBack }: WizardProps) {
                 {[
                   'What are your growth goals?',
                   'Where do you track progress?',
+                  'Define your success metrics',
                   "Let's audit your channels",
                   'Who are your ideal customers?',
                   'Craft your messaging strategy',

@@ -12,7 +12,19 @@ export interface OnboardingState {
     connected: boolean
     details: string
   }
-  // Step 3: Channel Audit
+  // Step 3: Outcomes
+  outcomes: {
+    type: string          // 'hire' | 'sale' | 'booked_call' | 'contract' | 'enrollment' | 'purchase' | 'trial' | 'custom'
+    custom_label: string  // Only if type === 'custom'
+    target_per_month: number | null
+    value_per_outcome: number | null
+    max_cost_per_outcome: number | null
+    currency: 'USD' | 'MXN'
+    baseline_volume: number | null
+    baseline_cost: number | null
+    bottleneck: string
+  }
+  // Step 4: Channel Audit
   channels: {
     used: string[]
     worked: string[]
@@ -87,6 +99,7 @@ export interface ChannelRecommendation {
 export const STEP_NAMES = [
   'Goals',
   'Tracking',
+  'Outcomes',
   'Channels',
   'Personas',
   'Messaging',
@@ -98,6 +111,7 @@ export const STEP_NAMES = [
 export const STEP_DESCRIPTIONS = [
   'Define your growth objectives',
   'Connect your goal tracking system',
+  'Define what a win looks like',
   'Audit your marketing channels',
   'Identify your ideal customers',
   'Craft your emotional messaging',
@@ -109,6 +123,17 @@ export const STEP_DESCRIPTIONS = [
 export const DEFAULT_STATE: OnboardingState = {
   goals: { primary: '', secondary: [], timeline: '', budget_range: '' },
   tracking: { system: '', connected: false, details: '' },
+  outcomes: {
+    type: '',
+    custom_label: '',
+    target_per_month: null,
+    value_per_outcome: null,
+    max_cost_per_outcome: null,
+    currency: 'USD',
+    baseline_volume: null,
+    baseline_cost: null,
+    bottleneck: ''
+  },
   channels: { used: [], worked: [], failed: [], notes: '' },
   personas: { current: [], ideal: [], ai_generated: false },
   messaging: { narratives: [], emotional_triggers: [], tone: '', key_messages: [] },
