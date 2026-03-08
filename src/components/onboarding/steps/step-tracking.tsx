@@ -18,11 +18,13 @@ const TRACKING_SYSTEMS = [
   { id: 'notion', name: 'Notion', category: 'Workspace', color: 'bg-zinc-800', connectType: 'oauth' },
   { id: 'pipedrive', name: 'Pipedrive', category: 'CRM', color: 'bg-emerald-600', connectType: 'api_key' },
   { id: 'monday', name: 'Monday.com', category: 'Project Mgmt', color: 'bg-red-500', connectType: 'oauth' },
+  { id: 'other', name: 'Other', category: "Tell us what you use", color: 'bg-violet-500', connectType: 'text' },
   { id: 'none', name: "I don't have one yet", category: "We'll create one", color: 'bg-primary', connectType: 'none' },
 ]
 
 export function StepTracking({ state, update }: Props) {
   const selected = state.tracking.system
+  const selectedSys = TRACKING_SYSTEMS.find(s => s.id === selected)
 
   return (
     <div className="space-y-8">
@@ -41,7 +43,7 @@ export function StepTracking({ state, update }: Props) {
             return (
               <button
                 key={sys.id}
-                onClick={() => update({ system: sys.id, connected: false })}
+                onClick={() => update({ system: sys.id, connected: false, details: '' })}
                 className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
                   isSelected
                     ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
@@ -68,8 +70,31 @@ export function StepTracking({ state, update }: Props) {
         </div>
       </div>
 
-      {/* Connection prompt */}
-      {selected && selected !== 'none' && (
+      {/* Other — free text */}
+      {selected === 'other' && (
+        <div className="p-5 rounded-xl border border-dashed border-primary/30 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <Link2 className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1">
+              <div className="font-medium text-sm mb-1">Which tool do you use?</div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Tell us what you're using and we'll do our best to support it or build you a manual sync workflow.
+              </p>
+              <Input
+                placeholder="E.g., Zoho CRM, Close.io, custom spreadsheet..."
+                value={state.tracking.details}
+                onChange={(e) => update({ details: e.target.value })}
+                className="max-w-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OAuth / API key connection prompt */}
+      {selected && selected !== 'none' && selected !== 'other' && (
         <div className="p-5 rounded-xl border border-dashed border-primary/30 bg-primary/5">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -77,16 +102,16 @@ export function StepTracking({ state, update }: Props) {
             </div>
             <div className="flex-1">
               <div className="font-medium text-sm mb-1">
-                Connect {TRACKING_SYSTEMS.find(s => s.id === selected)?.name}
+                Connect {selectedSys?.name}
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                {TRACKING_SYSTEMS.find(s => s.id === selected)?.connectType === 'oauth'
+                {selectedSys?.connectType === 'oauth'
                   ? "Click below to authorize TorqueLoop to read and write to your account. We'll only access the data needed for goal tracking."
                   : "Enter your API key below. We'll use it to sync your goal outcomes bidirectionally."
                 }
               </p>
 
-              {TRACKING_SYSTEMS.find(s => s.id === selected)?.connectType === 'api_key' ? (
+              {selectedSys?.connectType === 'api_key' ? (
                 <Input
                   placeholder="Paste your API key here"
                   type="password"
