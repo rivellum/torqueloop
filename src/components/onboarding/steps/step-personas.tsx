@@ -37,6 +37,18 @@ function PersonaCard({
   onRemove: () => void
   isAiGenerated?: boolean
 }) {
+  // Local raw string state so spaces aren't eaten mid-typing.
+  // We convert to array only on blur (when the user finishes typing).
+  const [rawPainPoints, setRawPainPoints] = useState(persona.pain_points.join(', '))
+  const [rawDesires, setRawDesires] = useState(persona.desires.join(', '))
+
+  const commitPainPoints = (raw: string) => {
+    onChange({ ...persona, pain_points: raw.split(',').map(s => s.trim()).filter(Boolean) })
+  }
+  const commitDesires = (raw: string) => {
+    onChange({ ...persona, desires: raw.split(',').map(s => s.trim()).filter(Boolean) })
+  }
+
   return (
     <div className="p-4 rounded-xl border bg-card space-y-3">
       <div className="flex items-center justify-between">
@@ -97,20 +109,24 @@ function PersonaCard({
 
       <div>
         <Label className="text-xs mb-1 block">Pain points (what frustrates them?)</Label>
+        <p className="text-[11px] text-muted-foreground mb-1">Separate each item with a comma</p>
         <Textarea
           placeholder="Stagnant salary, toxic boss, no growth path..."
-          value={persona.pain_points.join(', ')}
-          onChange={(e) => onChange({ ...persona, pain_points: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+          value={rawPainPoints}
+          onChange={(e) => setRawPainPoints(e.target.value)}
+          onBlur={() => commitPainPoints(rawPainPoints)}
           className="min-h-[60px] resize-none text-sm"
         />
       </div>
 
       <div>
         <Label className="text-xs mb-1 block">Desires (what do they want?)</Label>
+        <p className="text-[11px] text-muted-foreground mb-1">Separate each item with a comma</p>
         <Textarea
           placeholder="Financial freedom, flexibility, be their own boss..."
-          value={persona.desires.join(', ')}
-          onChange={(e) => onChange({ ...persona, desires: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+          value={rawDesires}
+          onChange={(e) => setRawDesires(e.target.value)}
+          onBlur={() => commitDesires(rawDesires)}
           className="min-h-[60px] resize-none text-sm"
         />
       </div>
