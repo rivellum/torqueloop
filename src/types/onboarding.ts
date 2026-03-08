@@ -64,6 +64,7 @@ export interface OnboardingState {
 }
 
 export interface PersonaProfile {
+  _id?: string  // Unique ID for React key stability
   name: string
   age_range: string
   occupation: string

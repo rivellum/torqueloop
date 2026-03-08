@@ -1,12 +1,12 @@
 "use client"
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { OnboardingState, PersonaProfile } from '@/types/onboarding'
-import { Plus, Sparkles, X, User } from 'lucide-react'
+import { Plus, Sparkles, X, User, Loader2 } from 'lucide-react'
 
 interface Props {
   state: OnboardingState
@@ -14,15 +14,21 @@ interface Props {
   onAiInsight: (msg: string, delay?: number) => void
 }
 
-const EMPTY_PERSONA: PersonaProfile = {
+const EMPTY_PERSONA: () => PersonaProfile = () => ({
   name: '',
   age_range: '',
   occupation: '',
   pain_points: [],
   desires: [],
   media_habits: [],
-  location: ''
-}
+  location: '',
+  _id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+})
+
+const MEDIA_OPTIONS = [
+  'Instagram', 'Facebook', 'TikTok', 'YouTube', 'LinkedIn',
+  'WhatsApp', 'Twitter/X', 'Podcasts', 'Email newsletters', 'Google Search'
+]
 
 function PersonaCard({
   persona,
@@ -37,8 +43,6 @@ function PersonaCard({
   onRemove: () => void
   isAiGenerated?: boolean
 }) {
-  // Local raw string state so spaces aren't eaten mid-typing.
-  // We convert to array only on blur (when the user finishes typing).
   const [rawPainPoints, setRawPainPoints] = useState(persona.pain_points.join(', '))
   const [rawDesires, setRawDesires] = useState(persona.desires.join(', '))
 
@@ -47,6 +51,14 @@ function PersonaCard({
   }
   const commitDesires = (raw: string) => {
     onChange({ ...persona, desires: raw.split(',').map(s => s.trim()).filter(Boolean) })
+  }
+
+  const toggleMediaHabit = (habit: string) => {
+    const current = persona.media_habits || []
+    const next = current.includes(habit)
+      ? current.filter(h => h !== habit)
+      : [...current, habit]
+    onChange({ ...persona, media_habits: next })
   }
 
   return (
@@ -63,12 +75,16 @@ function PersonaCard({
             </Badge>
           )}
         </div>
-        <button onClick={onRemove} className="p-1 rounded hover:bg-muted text-muted-foreground">
+        <button
+          onClick={onRemove}
+          className="p-1 rounded hover:bg-muted text-muted-foreground"
+          aria-label={`Remove persona ${persona.name || index + 1}`}
+        >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label className="text-xs mb-1 block">Name / Label</Label>
           <Input
@@ -130,44 +146,75 @@ function PersonaCard({
           className="min-h-[60px] resize-none text-sm"
         />
       </div>
+
+      {/* Media habits — MED-004 fix */}
+      <div>
+        <Label className="text-xs mb-1 block">Where do they spend time online?</Label>
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {MEDIA_OPTIONS.map(habit => (
+            <button
+              key={habit}
+              onClick={() => toggleMediaHabit(habit)}
+              className={`px-2.5 py-1 rounded-lg border text-xs transition-colors ${
+                persona.media_habits?.includes(habit)
+                  ? 'border-primary bg-primary/10 text-primary font-medium'
+                  : 'border-border text-muted-foreground hover:border-primary/30'
+              }`}
+            >
+              {habit}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
 
 export function StepPersonas({ state, update, onAiInsight }: Props) {
+  // Use ref to always have latest personas for async callbacks (CRT-001 fix)
   const [personas, setPersonas] = useState<PersonaProfile[]>(
     state.personas.ideal.length > 0 ? state.personas.ideal : []
   )
+  const personasRef = useRef(personas)
+  personasRef.current = personas
+
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const syncToParent = useCallback((next: PersonaProfile[]) => {
+    setPersonas(next)
+    personasRef.current = next
+    update({ ideal: next })
+  }, [update])
 
   const addPersona = () => {
-    const next = [...personas, { ...EMPTY_PERSONA }]
-    setPersonas(next)
-    update({ ideal: next })
+    const next = [...personasRef.current, EMPTY_PERSONA()]
+    syncToParent(next)
   }
 
   const updatePersona = (index: number, persona: PersonaProfile) => {
-    const next = [...personas]
+    const next = [...personasRef.current]
     next[index] = persona
-    setPersonas(next)
-    update({ ideal: next })
+    syncToParent(next)
   }
 
   const removePersona = (index: number) => {
-    const next = personas.filter((_, i) => i !== index)
-    setPersonas(next)
-    update({ ideal: next })
+    const next = personasRef.current.filter((_, i) => i !== index)
+    syncToParent(next)
   }
 
   const generateWithAi = () => {
+    if (isGenerating) return
+    setIsGenerating(true)
+
     onAiInsight(
       "Analyzing your goals and channel data... I'm building persona profiles based on who typically converts for businesses like yours. Give me a moment.",
       1500
     )
 
-    // Simulate AI-generated personas
     setTimeout(() => {
       const aiPersonas: PersonaProfile[] = [
         {
+          ...EMPTY_PERSONA(),
           name: 'Ambitious Professional',
           age_range: '28-38',
           occupation: 'Mid-career employee seeking more',
@@ -177,17 +224,22 @@ export function StepPersonas({ state, update, onAiInsight }: Props) {
           location: 'Urban metro areas'
         },
         {
+          ...EMPTY_PERSONA(),
           name: 'Side Hustle Seeker',
           age_range: '22-35',
           occupation: 'Employed but exploring extra income',
           pain_points: ['Living paycheck to paycheck', 'Wants more for family', 'No entrepreneurial support'],
           desires: ['Extra income stream', 'Low-risk opportunity', 'Community and mentorship'],
-          media_habits: ['TikTok', 'Facebook groups', 'WhatsApp'],
+          media_habits: ['TikTok', 'Facebook', 'WhatsApp'],
           location: 'Suburban and emerging cities'
         }
       ]
-      setPersonas(prev => [...prev, ...aiPersonas])
-      update({ ideal: [...personas, ...aiPersonas], ai_generated: true })
+      // Use ref to get latest personas (CRT-001: prevents stale closure)
+      const latestPersonas = personasRef.current
+      const merged = [...latestPersonas, ...aiPersonas]
+      syncToParent(merged)
+      update({ ideal: merged, ai_generated: true })
+      setIsGenerating(false)
     }, 2000)
   }
 
@@ -208,17 +260,36 @@ export function StepPersonas({ state, update, onAiInsight }: Props) {
       <Button
         variant="outline"
         onClick={generateWithAi}
+        disabled={isGenerating}
         className="gap-2 w-full justify-center border-dashed border-primary/30 text-primary hover:bg-primary/5"
       >
-        <Sparkles className="w-4 h-4" />
-        Generate personas with AI
+        {isGenerating ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Generating personas...
+          </>
+        ) : (
+          <>
+            <Sparkles className="w-4 h-4" />
+            Generate personas with AI
+          </>
+        )}
       </Button>
 
-      {/* Persona cards */}
+      {/* Empty state guidance — MED-002 */}
+      {personas.length === 0 && !isGenerating && (
+        <div className="text-center py-8 text-muted-foreground">
+          <User className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm mb-1">No personas yet</p>
+          <p className="text-xs">Click "Generate with AI" above for smart suggestions, or add one manually below.</p>
+        </div>
+      )}
+
+      {/* Persona cards — uses _id for key instead of index (HGH-004 fix) */}
       <div className="space-y-4">
         {personas.map((p, i) => (
           <PersonaCard
-            key={i}
+            key={(p as PersonaProfile & { _id?: string })._id || `persona-${i}-${p.name}`}
             persona={p}
             index={i}
             onChange={(updated) => updatePersona(i, updated)}
@@ -232,6 +303,7 @@ export function StepPersonas({ state, update, onAiInsight }: Props) {
       <button
         onClick={addPersona}
         className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed text-sm text-muted-foreground hover:border-primary/30 hover:text-primary transition-colors"
+        aria-label="Add a new persona manually"
       >
         <Plus className="w-4 h-4" />
         Add persona manually

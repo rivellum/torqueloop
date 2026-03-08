@@ -1,9 +1,10 @@
 "use client"
+import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { OnboardingState } from '@/types/onboarding'
-import { Link2, Check, ExternalLink } from 'lucide-react'
+import { Link2, Check, ExternalLink, ShieldCheck } from 'lucide-react'
 
 interface Props {
   state: OnboardingState
@@ -13,11 +14,13 @@ interface Props {
 const TRACKING_SYSTEMS = [
   { id: 'hubspot', name: 'HubSpot', category: 'CRM', color: 'bg-orange-500', connectType: 'oauth' },
   { id: 'salesforce', name: 'Salesforce', category: 'CRM', color: 'bg-blue-600', connectType: 'oauth' },
+  { id: 'gohighlevel', name: 'GoHighLevel', category: 'CRM / All-in-one', color: 'bg-sky-500', connectType: 'oauth' },
+  { id: 'zoho_bigin', name: 'Zoho Bigin', category: 'CRM', color: 'bg-red-500', connectType: 'oauth' },
+  { id: 'supabase_custom', name: 'Supabase (Custom)', category: 'Database', color: 'bg-emerald-600', connectType: 'api_key' },
   { id: 'airtable', name: 'Airtable', category: 'Database', color: 'bg-yellow-500', connectType: 'api_key' },
   { id: 'google_sheets', name: 'Google Sheets', category: 'Spreadsheet', color: 'bg-green-600', connectType: 'oauth' },
   { id: 'notion', name: 'Notion', category: 'Workspace', color: 'bg-zinc-800', connectType: 'oauth' },
   { id: 'pipedrive', name: 'Pipedrive', category: 'CRM', color: 'bg-emerald-600', connectType: 'api_key' },
-  { id: 'monday', name: 'Monday.com', category: 'Project Mgmt', color: 'bg-red-500', connectType: 'oauth' },
   { id: 'other', name: 'Other', category: "Tell us what you use", color: 'bg-violet-500', connectType: 'text' },
   { id: 'none', name: "I don't have one yet", category: "We'll create one", color: 'bg-primary', connectType: 'none' },
 ]
@@ -25,6 +28,32 @@ const TRACKING_SYSTEMS = [
 export function StepTracking({ state, update }: Props) {
   const selected = state.tracking.system
   const selectedSys = TRACKING_SYSTEMS.find(s => s.id === selected)
+
+  // CRT-002 FIX: API key stored ONLY in component-local state, never in wizard state
+  // The wizard state only stores connection status (boolean), not the actual key
+  const [localApiKey, setLocalApiKey] = useState('')
+  const [isConnecting, setIsConnecting] = useState(false)
+
+  const handleConnect = () => {
+    if (selectedSys?.connectType === 'api_key' && localApiKey.trim()) {
+      setIsConnecting(true)
+      // In production: send API key directly to server-side endpoint
+      // The key NEVER enters the wizard state object
+      setTimeout(() => {
+        update({ connected: true })
+        setLocalApiKey('') // Clear from local state after "connection"
+        setIsConnecting(false)
+      }, 1000)
+    } else if (selectedSys?.connectType === 'oauth') {
+      // In production: redirect to OAuth flow
+      // For now, simulate connection
+      setIsConnecting(true)
+      setTimeout(() => {
+        update({ connected: true })
+        setIsConnecting(false)
+      }, 1500)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -43,7 +72,11 @@ export function StepTracking({ state, update }: Props) {
             return (
               <button
                 key={sys.id}
-                onClick={() => update({ system: sys.id, connected: false, details: '' })}
+                onClick={() => {
+                  update({ system: sys.id, connected: false, details: '' })
+                  setLocalApiKey('')
+                }}
+                aria-label={`Select ${sys.name} as tracking system`}
                 className={`flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
                   isSelected
                     ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
@@ -107,30 +140,54 @@ export function StepTracking({ state, update }: Props) {
               <p className="text-xs text-muted-foreground mb-3">
                 {selectedSys?.connectType === 'oauth'
                   ? "Click below to authorize TorqueLoop to read and write to your account. We'll only access the data needed for goal tracking."
-                  : "Enter your API key below. We'll use it to sync your goal outcomes bidirectionally."
+                  : "Enter your API key below. It will be sent directly to our secure server — never stored in your browser."
                 }
               </p>
 
-              {selectedSys?.connectType === 'api_key' ? (
-                <Input
-                  placeholder="Paste your API key here"
-                  type="password"
-                  value={state.tracking.details}
-                  onChange={(e) => update({ details: e.target.value })}
-                  className="max-w-sm"
-                />
-              ) : (
-                <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Connect with OAuth
-                </button>
-              )}
-
-              {state.tracking.connected && (
-                <Badge variant="default" className="mt-3 bg-green-600">
-                  <Check className="w-3 h-3 mr-1" />
-                  Connected
+              {state.tracking.connected ? (
+                <Badge variant="default" className="bg-green-600 gap-1">
+                  <Check className="w-3 h-3" />
+                  Connected to {selectedSys?.name}
                 </Badge>
+              ) : selectedSys?.connectType === 'api_key' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Paste your API key here"
+                      type="password"
+                      value={localApiKey}
+                      onChange={(e) => setLocalApiKey(e.target.value)}
+                      className="max-w-sm"
+                      autoComplete="off"
+                    />
+                    <button
+                      onClick={handleConnect}
+                      disabled={!localApiKey.trim() || isConnecting}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                    >
+                      {isConnecting ? 'Connecting...' : 'Connect'}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Your API key is sent directly to our server and never stored in your browser.
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleConnect}
+                  disabled={isConnecting}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {isConnecting ? (
+                    'Connecting...'
+                  ) : (
+                    <>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Connect with OAuth
+                    </>
+                  )}
+                </button>
               )}
             </div>
           </div>

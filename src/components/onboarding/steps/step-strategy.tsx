@@ -446,7 +446,7 @@ export function StepStrategy({ state, update }: Props) {
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
-          Distribute your paid budget across channels. AI will optimize these weights based on performance.
+          Distribute your budget across channels (max 50% per channel). AI will optimize these weights based on performance.
         </p>
 
         <div className="space-y-2">

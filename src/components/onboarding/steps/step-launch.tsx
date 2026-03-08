@@ -113,7 +113,7 @@ export function StepLaunch({ state, update }: Props) {
         {state.feedback.notes.length > 0 && (
           <div className="space-y-2 mb-4">
             {state.feedback.notes.map((note, i) => (
-              <div key={i} className="rounded-lg bg-muted/50 p-3 text-sm">
+              <div key={`feedback-${i}-${note.slice(0, 20)}`} className="rounded-lg bg-muted/50 p-3 text-sm">
                 <div className="text-xs text-muted-foreground mb-1">Revision round {i + 1}</div>
                 {note}
               </div>

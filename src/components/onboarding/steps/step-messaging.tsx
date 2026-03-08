@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { OnboardingState, EmotionalTrigger, SevenSins } from '@/types/onboarding'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, Loader2 } from 'lucide-react'
 
 interface Props {
   state: OnboardingState
@@ -43,6 +43,9 @@ export function StepMessaging({ state, update, onAiInsight }: Props) {
     new Set(state.messaging.emotional_triggers.filter(t => t.intensity > 5).map(t => t.sin))
   )
 
+  // MED-010: Loading state for AI generation
+  const [isGenerating, setIsGenerating] = useState(false)
+
   const toggleSin = (sin: SevenSins) => {
     const next = new Set(selectedSins)
     if (next.has(sin)) {
@@ -76,6 +79,7 @@ export function StepMessaging({ state, update, onAiInsight }: Props) {
   }
 
   const generateMessages = () => {
+    setIsGenerating(true)
     onAiInsight(
       "I'm crafting emotionally targeted messages for each trigger based on your personas. The best campaigns combine 2-3 primary emotions with supporting ones for different stages of the funnel.",
       1500
@@ -97,6 +101,7 @@ export function StepMessaging({ state, update, onAiInsight }: Props) {
       }))
       setTriggers(updated)
       update({ emotional_triggers: updated })
+      setIsGenerating(false)
     }, 2000)
   }
 
@@ -113,24 +118,34 @@ export function StepMessaging({ state, update, onAiInsight }: Props) {
             <button
               key={t.id}
               onClick={() => update({ tone: t.id })}
-              className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+              aria-pressed={state.messaging.tone === t.id}
+              className={`px-4 py-2 rounded-xl border text-sm transition-all ${
                 state.messaging.tone === t.id
-                  ? 'border-primary bg-primary/10 text-primary font-medium'
-                  : 'border-border text-muted-foreground hover:border-primary/30'
+                  ? 'border-primary bg-primary/10 text-primary font-medium ring-1 ring-primary/20 shadow-sm'
+                  : 'border-border text-muted-foreground hover:border-primary/30 hover:bg-muted/50'
               }`}
             >
               {t.label}
             </button>
           ))}
         </div>
+        {state.messaging.tone && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Selected: <span className="font-medium text-foreground capitalize">{state.messaging.tone}</span> — {TONES.find(t => t.id === state.messaging.tone)?.desc}
+          </p>
+        )}
       </div>
 
       {/* Emotional triggers */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <Label className="text-base font-semibold">Emotional triggers</Label>
-          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={generateMessages}>
-            <Sparkles className="w-3 h-3" /> Auto-generate messages
+          <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={generateMessages} disabled={isGenerating}>
+            {isGenerating ? (
+              <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+            ) : (
+              <><Sparkles className="w-3 h-3" /> Auto-generate messages</>
+            )}
           </Button>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
