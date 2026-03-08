@@ -168,6 +168,79 @@ function buildRecommendation(state: OnboardingState): AiRec {
   }
 }
 
+/* ── Label formatters ── */
+const BUDGET_LABELS: Record<string, string> = {
+  under_500: 'Under $500 / mo',
+  '500_2k':  '$500 – $2,000 / mo',
+  '2k_5k':   '$2,000 – $5,000 / mo',
+  '5k_10k':  '$5,000 – $10,000 / mo',
+  '10k_plus':'$10,000+ / mo',
+  unsure:    'Not sure yet',
+}
+const TIMELINE_LABELS: Record<string, string> = {
+  '1_week':   'This week',
+  '2_weeks':  'Next 2 weeks',
+  '1_month':  'This month',
+  '3_months': 'Next quarter',
+  '6_months': '6 months',
+  '1_year':   'This year',
+}
+const GOAL_LABELS: Record<string, string> = {
+  hire:    'Recruit / Hire',
+  sales:   'Close Sales',
+  leads:   'Generate Leads',
+  revenue: 'Grow Revenue',
+  signups: 'Get Signups',
+  brand:   'Build Brand',
+}
+const OUTCOME_LABELS: Record<string, string> = {
+  hire:        '🧑‍💼 Hire / Recruit',
+  sale:        '💰 Closed Sale',
+  booked_call: '📅 Booked Call',
+  contract:    '📝 Signed Contract',
+  enrollment:  '🎓 Enrollment',
+  purchase:    '📦 Purchase',
+  trial:       '🔑 Free Trial / Signup',
+  custom:      '✏️ Custom',
+}
+
+function fmt(map: Record<string, string>, val: string | undefined, fallback = '—') {
+  if (!val) return fallback
+  return map[val] || val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function BudgetContextCard({ state }: { state: OnboardingState }) {
+  const items = [
+    { label: 'Monthly budget',  value: fmt(BUDGET_LABELS,  state.goals.budget_range), icon: '💰' },
+    { label: 'Primary goal',    value: fmt(GOAL_LABELS,    state.goals.primary),       icon: '🎯' },
+    { label: 'Timeline',        value: fmt(TIMELINE_LABELS, state.goals.timeline),     icon: '📅' },
+    { label: 'Outcome target',  value: fmt(OUTCOME_LABELS, state.outcomes?.type),      icon: '🏆' },
+  ]
+
+  return (
+    <div className="rounded-2xl border bg-gradient-to-br from-card to-muted/30 p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+          <DollarSign className="w-3.5 h-3.5 text-primary" />
+        </div>
+        <span className="font-semibold text-sm">Your campaign snapshot</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {items.map(({ label, value, icon }) => (
+          <div key={label} className="rounded-xl bg-background/70 border border-border/50 px-4 py-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-base leading-none">{icon}</span>
+              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{label}</span>
+            </div>
+            <div className="font-semibold text-sm leading-snug">{value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 type Phase = 'loading' | 'recommendation' | 'editing'
 
 export function StepStrategy({ state, update }: Props) {
@@ -433,30 +506,7 @@ export function StepStrategy({ state, update }: Props) {
       </div>
 
       {/* Budget context */}
-      <div className="rounded-xl border bg-card p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <DollarSign className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold">Budget context</span>
-        </div>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <div className="text-muted-foreground text-xs mb-0.5">Monthly range</div>
-            <div className="font-medium">{state.goals.budget_range || 'Not set'}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs mb-0.5">Primary goal</div>
-            <div className="font-medium capitalize">{state.goals.primary || 'Not set'}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs mb-0.5">Timeline</div>
-            <div className="font-medium">{state.goals.timeline || 'Not set'}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs mb-0.5">Outcome target</div>
-            <div className="font-medium capitalize">{state.outcomes?.type || 'Not set'}</div>
-          </div>
-        </div>
-      </div>
+      <BudgetContextCard state={state} />
 
       {/* AI note */}
       <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground flex items-start gap-2">
