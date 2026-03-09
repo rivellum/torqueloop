@@ -3,8 +3,9 @@ import { useState } from 'react'
 import { OnboardingState, SevenSins, STEP_NAMES } from '@/types/onboarding'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { FileText, Target, Users, MessageCircle, BarChart3, Zap, CheckCircle2, Download, Loader2 } from 'lucide-react'
+import { FileText, Target, Users, MessageCircle, BarChart3, Zap, CheckCircle2, Download, Loader2, Sparkles, Image, Video, Music, Mic } from 'lucide-react'
 import { generateStrategyBriefHTML } from '@/lib/generate-pdf'
+import type { CreativeResult, CampaignContext } from '@/lib/creative/types'
 
 interface Props {
   state: OnboardingState
@@ -281,6 +282,259 @@ export function StepPresentation({ state, update }: Props) {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Creative Generation Panel */}
+      <CreativeGenerationPanel state={state} />
+    </div>
+  )
+}
+
+// ── Creative Generation Panel ──
+function CreativeGenerationPanel({ state }: { state: OnboardingState }) {
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [results, setResults] = useState<CreativeResult[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [providers, setProviders] = useState<string[]>([])
+  const [totalCost, setTotalCost] = useState(0)
+
+  const allocatedChannels = Object.entries(state.strategy.budget_split || {})
+    .filter(([, v]) => v > 0)
+    .map(([ch]) => ch)
+
+  const buildCampaignContext = (): CampaignContext => ({
+    business_name: 'Your Business',
+    goal: state.goals.primary || 'growth',
+    outcome_type: state.outcomes?.type || '',
+    personas: [...(state.personas.current || []), ...(state.personas.ideal || [])].map(p => ({
+      name: p.name || 'Target Customer',
+      age_range: p.age_range || '25-45',
+      location: p.location || '',
+      pain_points: p.pain_points || [],
+      media_habits: p.media_habits || [],
+    })),
+    tone: state.messaging.tone || 'professional',
+    emotional_triggers: (state.messaging.emotional_triggers || [])
+      .filter(t => t.intensity > 5)
+      .map(t => ({ sin: t.sin, message: t.message, intensity: t.intensity })),
+    channels: allocatedChannels,
+    budget_range: state.goals.budget_range || 'unsure',
+  })
+
+  const handleGenerate = async (mode: 'preview' | 'full') => {
+    setIsGenerating(true)
+    setError(null)
+
+    try {
+      const campaign = buildCampaignContext()
+      const response = await fetch('/api/creative/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaign,
+          mode,
+          language: 'en',
+          maxGenerations: mode === 'preview' ? 3 : 15,
+          channel: mode === 'preview' ? allocatedChannels[0] : undefined,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Creative generation failed')
+        return
+      }
+
+      if (mode === 'preview' && data.result) {
+        setResults([data.result])
+      } else if (data.results) {
+        setResults(data.results)
+      }
+
+      setProviders(data.providers_available || data.providers_used || [])
+      setTotalCost(data.total_cost_usd || 0)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const readyResults = results.filter(r => r.status === 'ready')
+  const failedResults = results.filter(r => r.status === 'failed')
+
+  const ASSET_ICONS: Record<string, React.ReactNode> = {
+    static: <Image className="w-3.5 h-3.5" />,
+    video: <Video className="w-3.5 h-3.5" />,
+    audio_jingle: <Music className="w-3.5 h-3.5" />,
+    audio_voiceover: <Mic className="w-3.5 h-3.5" />,
+    audio_instrumental: <Music className="w-3.5 h-3.5" />,
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card overflow-hidden">
+      <div className="bg-gradient-to-r from-violet-500/10 to-blue-500/10 border-b px-6 py-5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-bold text-lg">Creative Engine</h2>
+            <p className="text-xs text-muted-foreground">AI-powered ad creative generation</p>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground mt-3">
+          Generate display ads, video clips, jingles, and voiceovers for your campaign — powered by
+          Nano Banana 2, Sora, Creatomate, Suno, and ElevenLabs.
+        </p>
+      </div>
+
+      <div className="px-6 py-4">
+        {/* Provider status */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {[
+            { name: 'Nano Banana 2', type: 'Images', icon: <Image className="w-3 h-3" /> },
+            { name: 'Sora 2', type: 'Video', icon: <Video className="w-3 h-3" /> },
+            { name: 'Creatomate', type: 'Templates', icon: <Video className="w-3 h-3" /> },
+            { name: 'Suno', type: 'Jingles', icon: <Music className="w-3 h-3" /> },
+            { name: 'ElevenLabs', type: 'Voice', icon: <Mic className="w-3 h-3" /> },
+          ].map(p => (
+            <div key={p.name} className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1.5 text-xs">
+              {p.icon}
+              <span className="font-medium">{p.name}</span>
+              <span className="text-muted-foreground">({p.type})</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Channel targets */}
+        {allocatedChannels.length > 0 ? (
+          <div className="text-xs text-muted-foreground mb-4">
+            Generating for: {allocatedChannels.map(c => c.replace(/_/g, ' ')).join(', ')}
+          </div>
+        ) : (
+          <div className="text-xs text-amber-600 mb-4">
+            No channels allocated yet. Go back to Strategy step to set your channel mix.
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-3 mb-4">
+          <Button
+            onClick={() => handleGenerate('preview')}
+            disabled={isGenerating || allocatedChannels.length === 0}
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+          >
+            {isGenerating ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating...</>
+            ) : (
+              <><Sparkles className="w-3.5 h-3.5" /> Quick Preview</>
+            )}
+          </Button>
+          <Button
+            onClick={() => handleGenerate('full')}
+            disabled={isGenerating || allocatedChannels.length === 0}
+            size="sm"
+            className="gap-1.5"
+          >
+            {isGenerating ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating Suite...</>
+            ) : (
+              <><Zap className="w-3.5 h-3.5" /> Generate Full Suite</>
+            )}
+          </Button>
+        </div>
+
+        {/* Error display */}
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 p-3 mb-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Results grid */}
+        {results.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">
+                {readyResults.length} asset{readyResults.length !== 1 ? 's' : ''} generated
+              </span>
+              {totalCost > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Est. cost: ${totalCost.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {results.map(result => {
+                const iconKey = result.format.startsWith('static_') ? 'static'
+                  : result.format.startsWith('video_') ? 'video'
+                  : result.format
+                return (
+                  <div
+                    key={result.id}
+                    className={`rounded-xl border p-3 text-center ${
+                      result.status === 'ready' ? 'border-green-200 bg-green-50/50'
+                      : result.status === 'generating' ? 'border-blue-200 bg-blue-50/50'
+                      : result.status === 'failed' ? 'border-red-200 bg-red-50/50'
+                      : 'border-border'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      {ASSET_ICONS[iconKey] || <Image className="w-3.5 h-3.5" />}
+                      <span className="text-xs font-medium capitalize">
+                        {result.format.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground capitalize">
+                      {result.provider.replace(/_/g, ' ')}
+                    </div>
+
+                    {result.status === 'ready' && result.data && result.mime_type?.startsWith('image') && (
+                      <img
+                        src={`data:${result.mime_type};base64,${result.data}`}
+                        alt="Generated creative"
+                        className="w-full rounded-lg mt-2 border"
+                      />
+                    )}
+
+                    {result.status === 'ready' && result.url && (
+                      <a
+                        href={result.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline mt-1 block"
+                      >
+                        View asset
+                      </a>
+                    )}
+
+                    {result.status === 'generating' && (
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500 mx-auto mt-2" />
+                    )}
+
+                    {result.status === 'failed' && (
+                      <span className="text-[10px] text-red-500 mt-1 block">
+                        {result.error?.substring(0, 50) || 'Failed'}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {failedResults.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {failedResults.length} asset{failedResults.length !== 1 ? 's' : ''} failed —
+                check that API keys are configured in Vercel environment variables.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
