@@ -5,14 +5,16 @@
  * - Display ads (Nano Banana 2)
  * - Hero video clips (Sora 2)
  * - Template video variants (Creatomate)
- * - Jingles (Suno)
+ * - Avatar videos (HeyGen)
+ * - Jingles (Suno — manual workflow with prompt generation)
  * - Voiceovers (ElevenLabs)
  */
 
 import { generateImage, generateImageVariants } from './nano-banana'
 import { generateVideo } from './sora'
 import { renderTemplateVideo, bulkRender } from './creatomate'
-import { generateJingle } from './suno'
+import { generateAvatarVideo } from './heygen'
+import { createManualJingleTask } from './suno'
 import { generateVoiceover, generateInstrumental } from './elevenlabs'
 import {
   CreativeRequest,
@@ -46,6 +48,11 @@ async function routeRequest(request: CreativeRequest): Promise<CreativeResult> {
     return generateImage(request)
   }
 
+  // Avatar video → HeyGen
+  if (format === 'video_avatar') {
+    return generateAvatarVideo(request)
+  }
+
   // Video → Sora for hero clips, Creatomate for template variants
   if (format.startsWith('video_')) {
     // Use Sora for the first variant (hero), Creatomate for the rest
@@ -55,9 +62,9 @@ async function routeRequest(request: CreativeRequest): Promise<CreativeResult> {
     return renderTemplateVideo(request)
   }
 
-  // Jingle → Suno
+  // Jingle → Manual workflow (generates prompt for Suno web app)
   if (format === 'audio_jingle') {
-    return generateJingle(request)
+    return createManualJingleTask(request)
   }
 
   // Voiceover → ElevenLabs

@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { OnboardingState, SevenSins, STEP_NAMES } from '@/types/onboarding'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { FileText, Target, Users, MessageCircle, BarChart3, Zap, CheckCircle2, Download, Loader2, Sparkles, Image, Video, Music, Mic } from 'lucide-react'
+import { FileText, Target, Users, MessageCircle, BarChart3, Zap, CheckCircle2, Download, Loader2, Sparkles, Image, Video, Music, Mic, Upload, UserCircle, Copy, ExternalLink } from 'lucide-react'
 import { generateStrategyBriefHTML } from '@/lib/generate-pdf'
 import type { CreativeResult, CampaignContext } from '@/lib/creative/types'
+import { buildSunoPrompt } from '@/lib/creative/suno'
 
 interface Props {
   state: OnboardingState
@@ -385,8 +386,8 @@ function CreativeGenerationPanel({ state }: { state: OnboardingState }) {
           </div>
         </div>
         <p className="text-sm text-muted-foreground mt-3">
-          Generate display ads, video clips, jingles, and voiceovers for your campaign — powered by
-          Nano Banana 2, Sora, Creatomate, Suno, and ElevenLabs.
+          Generate display ads, video clips, avatar videos, and voiceovers — powered by
+          Nano Banana 2, Sora, Creatomate, HeyGen, and ElevenLabs.
         </p>
       </div>
 
@@ -397,7 +398,7 @@ function CreativeGenerationPanel({ state }: { state: OnboardingState }) {
             { name: 'Nano Banana 2', type: 'Images', icon: <Image className="w-3 h-3" /> },
             { name: 'Sora 2', type: 'Video', icon: <Video className="w-3 h-3" /> },
             { name: 'Creatomate', type: 'Templates', icon: <Video className="w-3 h-3" /> },
-            { name: 'Suno', type: 'Jingles', icon: <Music className="w-3 h-3" /> },
+            { name: 'HeyGen', type: 'Avatars', icon: <UserCircle className="w-3 h-3" /> },
             { name: 'ElevenLabs', type: 'Voice', icon: <Mic className="w-3 h-3" /> },
           ].map(p => (
             <div key={p.name} className="flex items-center gap-1.5 rounded-lg bg-muted/50 px-2.5 py-1.5 text-xs">
@@ -535,6 +536,130 @@ function CreativeGenerationPanel({ state }: { state: OnboardingState }) {
             )}
           </div>
         )}
+
+        {/* ── Manual Jingle Workflow (Suno) ── */}
+        <ManualJinglePanel state={state} />
+      </div>
+    </div>
+  )
+}
+
+// ── Manual Jingle Workflow Panel ──
+function ManualJinglePanel({ state }: { state: OnboardingState }) {
+  const [copied, setCopied] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null)
+
+  const campaign: CampaignContext = {
+    business_name: 'Your Business',
+    goal: state.goals.primary || 'growth',
+    outcome_type: state.outcomes?.type || '',
+    personas: [...(state.personas.current || []), ...(state.personas.ideal || [])].map(p => ({
+      name: p.name || 'Target Customer',
+      age_range: p.age_range || '25-45',
+      location: p.location || '',
+      pain_points: p.pain_points || [],
+      media_habits: p.media_habits || [],
+    })),
+    tone: state.messaging.tone || 'professional',
+    emotional_triggers: (state.messaging.emotional_triggers || [])
+      .filter(t => t.intensity > 5)
+      .map(t => ({ sin: t.sin, message: t.message, intensity: t.intensity })),
+    channels: Object.entries(state.strategy.budget_split || {})
+      .filter(([, v]) => v > 0)
+      .map(([ch]) => ch),
+    budget_range: state.goals.budget_range || 'unsure',
+  }
+
+  const { prompt, style, instructions } = buildSunoPrompt(campaign)
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(prompt)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setUploadedFile(file.name)
+      // TODO: Upload to Supabase Storage and link to campaign
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/50 overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-amber-200 bg-amber-100/50">
+        <Music className="w-4 h-4 text-amber-700" />
+        <span className="text-sm font-semibold text-amber-900">Jingle Generation</span>
+        <span className="ml-auto text-[10px] rounded-full bg-amber-200 px-2 py-0.5 text-amber-800 font-medium">Manual</span>
+      </div>
+
+      <div className="px-4 py-4 space-y-3">
+        <p className="text-xs text-amber-800">
+          Generate your campaign jingle in Suno, then upload the MP3 here for distribution to Spotify Ads, TikTok, YouTube, etc.
+        </p>
+
+        {/* Step-by-step instructions */}
+        <div className="text-xs text-amber-700 bg-white/60 rounded-lg p-3 space-y-1">
+          {instructions.split('\n').map((line, i) => (
+            <div key={`jingle-step-${i}`}>{line}</div>
+          ))}
+        </div>
+
+        {/* Generated prompt */}
+        <div className="relative">
+          <div className="bg-white rounded-lg border border-amber-200 p-3 text-xs text-gray-800 font-mono whitespace-pre-wrap">
+            {prompt}
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopy}
+              className="gap-1.5 text-xs h-7 border-amber-300 hover:bg-amber-100"
+            >
+              <Copy className="w-3 h-3" />
+              {copied ? 'Copied!' : 'Copy Prompt'}
+            </Button>
+            <span className="text-[10px] text-amber-600">Style: {style}</span>
+          </div>
+        </div>
+
+        {/* Open Suno link */}
+        <a
+          href="https://suno.com/create"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-900 underline"
+        >
+          <ExternalLink className="w-3 h-3" />
+          Open Suno to generate
+        </a>
+
+        {/* Upload area */}
+        <div className="border-2 border-dashed border-amber-300 rounded-lg p-4 text-center">
+          {uploadedFile ? (
+            <div className="flex items-center justify-center gap-2 text-sm text-green-700">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{uploadedFile}</span>
+            </div>
+          ) : (
+            <>
+              <Upload className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+              <p className="text-xs text-amber-700 mb-2">Upload your generated jingle (MP3, WAV, M4A)</p>
+              <label className="inline-flex items-center gap-1.5 cursor-pointer rounded-md bg-amber-100 hover:bg-amber-200 px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors">
+                <Upload className="w-3 h-3" />
+                Choose File
+                <input
+                  type="file"
+                  accept="audio/mpeg,audio/wav,audio/x-m4a,audio/mp4,.mp3,.wav,.m4a"
+                  onChange={handleFileUpload}
+                  className="sr-only"
+                />
+              </label>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

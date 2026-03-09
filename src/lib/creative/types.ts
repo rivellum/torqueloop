@@ -13,7 +13,8 @@ export type CreativeFormat =
   | 'video_short'       // 9:16, 15-30s — Reels, TikTok, Stories
   | 'video_square'      // 1:1, 15-30s — Feed video
   | 'video_landscape'   // 16:9, 15-60s — YouTube, pre-roll
-  | 'audio_jingle'      // 15-30s vocal jingle
+  | 'video_avatar'      // Talking-head avatar — HeyGen
+  | 'audio_jingle'      // 15-30s vocal jingle (manual via Suno)
   | 'audio_voiceover'   // Variable length VO
   | 'audio_instrumental'// Background music bed
 
@@ -21,7 +22,8 @@ export type CreativeProvider =
   | 'nano_banana'   // Google Gemini — images
   | 'sora'          // OpenAI Sora 2 — video
   | 'creatomate'    // Creatomate — template video
-  | 'suno'          // Suno — music/jingles
+  | 'heygen'        // HeyGen — avatar videos
+  | 'suno'          // Suno — jingles (manual workflow)
   | 'elevenlabs'    // ElevenLabs — voice/audio
 
 export type CreativeStatus = 'pending' | 'generating' | 'ready' | 'failed'
@@ -148,12 +150,20 @@ export const PROVIDER_REGISTRY: ProviderConfig[] = [
     rate_limit_rpm: 60,
   },
   {
+    name: 'heygen',
+    enabled: true,
+    api_key_env: 'HEYGEN_API_KEY',
+    formats: ['video_avatar'],
+    cost_per_unit: 0.50,
+    rate_limit_rpm: 10,
+  },
+  {
     name: 'suno',
     enabled: true,
-    api_key_env: 'SUNO_API_KEY',
+    api_key_env: '', // No API — manual workflow
     formats: ['audio_jingle'],
-    cost_per_unit: 0.05,
-    rate_limit_rpm: 10,
+    cost_per_unit: 0, // User generates manually
+    rate_limit_rpm: 0,
   },
   {
     name: 'elevenlabs',
@@ -175,16 +185,18 @@ export const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }
   video_short:        { width: 1080, height: 1920 },
   video_square:       { width: 1080, height: 1080 },
   video_landscape:    { width: 1920, height: 1080 },
+  video_avatar:       { width: 1080, height: 1920 }, // default portrait for avatar
 }
 
 // ── Channel → Format Mapping ──
 export const CHANNEL_FORMATS: Record<string, CreativeFormat[]> = {
-  meta_ads:       ['static_square', 'static_story', 'video_short', 'video_square', 'audio_voiceover'],
+  meta_ads:       ['static_square', 'static_story', 'video_short', 'video_square', 'video_avatar', 'audio_voiceover'],
   google_search:  [], // text-only, no creative needed
   google_display: ['static_landscape', 'static_leaderboard', 'static_banner'],
-  tiktok:         ['video_short', 'audio_jingle', 'audio_voiceover'],
-  linkedin:       ['static_landscape', 'static_square', 'video_landscape'],
-  youtube:        ['video_landscape', 'audio_jingle', 'audio_voiceover'],
+  tiktok:         ['video_short', 'video_avatar', 'audio_jingle', 'audio_voiceover'],
+  linkedin:       ['static_landscape', 'static_square', 'video_landscape', 'video_avatar'],
+  youtube:        ['video_landscape', 'video_avatar', 'audio_jingle', 'audio_voiceover'],
+  spotify_ads:    ['audio_jingle', 'audio_voiceover', 'static_square'],
   email:          ['static_landscape'],
   whatsapp:       ['static_square', 'audio_voiceover'],
   seo:            ['static_landscape'], // blog header images
