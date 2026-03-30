@@ -119,16 +119,36 @@ export function LandingPage({ config }: LandingPageProps) {
           margin: '0 auto',
         }}
       >
-        <span
-          style={{
-            fontFamily: 'var(--lp-font-heading)',
-            fontWeight: 700,
-            fontSize: 20,
-            color: 'var(--lp-primary)',
-          }}
-        >
-          {branding.logoText ?? ''}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {branding.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt={branding.logoText ?? 'Logo'}
+              style={{ height: 36, width: 'auto', objectFit: 'contain' }}
+            />
+          ) : (
+            <span
+              style={{
+                fontFamily: 'var(--lp-font-heading)',
+                fontWeight: 700,
+                fontSize: 20,
+                color: 'var(--lp-primary)',
+              }}
+            >
+              {branding.logoText ?? ''}
+            </span>
+          )}
+          {branding.partnerLogoUrl && (
+            <>
+              <span style={{ color: 'var(--lp-muted-fg)', fontSize: 18, fontWeight: 300 }}>×</span>
+              <img
+                src={branding.partnerLogoUrl}
+                alt={branding.partnerLogoAlt ?? 'Partner'}
+                style={{ height: 30, width: 'auto', objectFit: 'contain' }}
+              />
+            </>
+          )}
+        </div>
         {whatsappCTA && (
           <a
             href={buildWhatsAppUrl(whatsappCTA)}
