@@ -59,10 +59,15 @@ export function WorkspaceProvider({
         ? localStorage.getItem(ACTIVE_WORKSPACE_KEY)
         : null
 
-      if (storedId && fetchedWorkspaces.find((w) => w.id === storedId)) {
-        setActiveWorkspaceState(fetchedWorkspaces.find((w) => w.id === storedId)!)
-      } else if (fetchedWorkspaces.length > 0) {
-        setActiveWorkspaceState(fetchedWorkspaces[0])
+      const selected = storedId && fetchedWorkspaces.find((w) => w.id === storedId)
+        ? fetchedWorkspaces.find((w) => w.id === storedId)!
+        : fetchedWorkspaces.length > 0
+        ? fetchedWorkspaces[0]
+        : null
+
+      if (selected) {
+        setActiveWorkspaceState(selected)
+        document.cookie = `${ACTIVE_WORKSPACE_KEY}=${selected.id};path=/;max-age=31536000;SameSite=Lax`
       }
 
       setLoading(false)
@@ -77,10 +82,13 @@ export function WorkspaceProvider({
         ? localStorage.getItem(ACTIVE_WORKSPACE_KEY)
         : null
 
-      if (storedId && initialWorkspaces.find((w) => w.id === storedId)) {
-        setActiveWorkspaceState(initialWorkspaces.find((w) => w.id === storedId)!)
-      } else if (initialWorkspaces.length > 0) {
-        setActiveWorkspaceState(initialWorkspaces[0])
+      const selected = storedId && initialWorkspaces.find((w) => w.id === storedId)
+        ? initialWorkspaces.find((w) => w.id === storedId)!
+        : initialWorkspaces[0]
+
+      setActiveWorkspaceState(selected)
+      if (typeof window !== 'undefined') {
+        document.cookie = `${ACTIVE_WORKSPACE_KEY}=${selected.id};path=/;max-age=31536000;SameSite=Lax`
       }
 
       // Also fetch in background to refresh
