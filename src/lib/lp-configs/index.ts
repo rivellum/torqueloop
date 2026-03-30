@@ -1,6 +1,7 @@
 import type { LandingPageConfig } from '@/types/landing-page'
 import { prosperaReclutaConfig } from './prospera-recluta'
 import { veseguroReclutaConfig } from './veseguro-recluta'
+import { veseguroAplicaConfig } from './veseguro-aplica'
 
 /**
  * Landing Page Registry
@@ -12,6 +13,7 @@ import { veseguroReclutaConfig } from './veseguro-recluta'
 const LP_REGISTRY: Record<string, LandingPageConfig> = {
   'prospera-recluta': prosperaReclutaConfig,
   'veseguro-recluta': veseguroReclutaConfig,
+  'aplica': veseguroAplicaConfig,
 }
 
 export function getLandingPageConfig(slug: string): LandingPageConfig | null {
