@@ -92,6 +92,7 @@ export function WorkspaceProvider({
     setActiveWorkspaceState(workspace)
     if (typeof window !== 'undefined') {
       localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspace.id)
+      document.cookie = `${ACTIVE_WORKSPACE_KEY}=${workspace.id};path=/;max-age=31536000;SameSite=Lax`
     }
   }, [])
 
