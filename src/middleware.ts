@@ -10,6 +10,13 @@ export async function middleware(request: NextRequest) {
 
   const host = request.headers.get('host') || ''
 
+  // Supabase PKCE flow sends ?code= to site_url root — redirect to auth callback
+  if (request.nextUrl.pathname === '/' && request.nextUrl.searchParams.get('code')) {
+    const callbackUrl = new URL('/auth/callback', request.url)
+    callbackUrl.searchParams.set('code', request.nextUrl.searchParams.get('code')!)
+    return NextResponse.redirect(callbackUrl)
+  }
+
   // When accessed via aplica.veseguro.com, rewrite to /aplica
   if (host.startsWith('aplica.veseguro.com') && request.nextUrl.pathname === '/') {
     return NextResponse.rewrite(new URL('/aplica', request.url))
