@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
   { href: '/dashboard/creatives', label: 'Creativos', icon: Film },
-  { href: '/dashboard/initiatives', label: 'Campañas', icon: Megaphone },
+  { href: '/dashboard/campaigns', label: 'Campañas', icon: Megaphone },
   { href: '/dashboard/landing-pages', label: 'Landing Pages', icon: Globe },
   { href: '/dashboard/leads', label: 'Leads', icon: Users },
   { href: '/dashboard/approvals', label: 'Aprobaciones', icon: CheckCircle },
