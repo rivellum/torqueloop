@@ -13,14 +13,30 @@ export interface Creative {
   id: string
   workspace_id: string
   initiative_id: string | null
-  type: 'ad' | 'email' | 'social' | 'blog' | 'video' | 'landing_page'
-  title: string
-  content: string | null
-  status: 'draft' | 'review' | 'approved' | 'published' | 'archived'
-  generated_by: 'ai' | 'human' | 'hybrid'
-  metadata: Record<string, unknown>
+  type: string
+  channel_format: string | null
+  variant_label: string | null
+  content: Record<string, unknown> | null
+  status: string
+  brand_alignment_score: number | null
+  rejection_notes: string | null
   created_at: string
   updated_at: string
+}
+
+/** Helper to extract display title from creative content JSONB */
+export function getCreativeTitle(creative: { content?: Record<string, unknown> | null; variant_label?: string | null }): string {
+  return (creative.content?.name as string) || creative.variant_label || 'Sin título'
+}
+
+/** Helper to extract storage URL from creative content JSONB */
+export function getCreativeStorageUrl(creative: Creative): string | null {
+  return (creative.content?.storage_url as string) || null
+}
+
+/** Helper to extract thumbnail/mime from creative content JSONB */
+export function getCreativeMimeType(creative: Creative): string | null {
+  return (creative.content?.mime_type as string) || null
 }
 
 export interface Initiative {

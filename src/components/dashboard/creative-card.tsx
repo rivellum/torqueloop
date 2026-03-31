@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { Creative, ApprovalQueueItem } from '@/types/database'
+import { getCreativeTitle, getCreativeStorageUrl, getCreativeMimeType } from '@/types/database'
 
 interface CreativeCardProps {
   creative: Creative
@@ -42,10 +43,26 @@ export function CreativeCard({ creative, approval, qaScore }: CreativeCardProps)
     <Link href={`/dashboard/creatives/${creative.id}`}>
       <Card className="group cursor-pointer transition-shadow hover:shadow-md">
         <CardContent className="p-4">
-          <div className="mb-3 aspect-video w-full rounded-md bg-muted" />
+          <div className="mb-3 aspect-video w-full overflow-hidden rounded-md bg-muted">
+            {getCreativeMimeType(creative)?.startsWith('video/') && getCreativeStorageUrl(creative) ? (
+              <video
+                src={getCreativeStorageUrl(creative)!}
+                className="h-full w-full object-cover"
+                muted
+                playsInline
+                preload="metadata"
+              />
+            ) : getCreativeStorageUrl(creative) ? (
+              <img
+                src={getCreativeStorageUrl(creative)!}
+                alt={getCreativeTitle(creative)}
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+          </div>
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h3 className="truncate text-sm font-medium">{creative.title}</h3>
+              <h3 className="truncate text-sm font-medium">{getCreativeTitle(creative)}</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {new Date(creative.created_at).toLocaleDateString('es-MX', {
                   day: 'numeric',

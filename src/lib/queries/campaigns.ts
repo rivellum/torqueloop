@@ -42,7 +42,7 @@ export async function getCampaigns(
   const initiativeIds = initiatives.map((i) => i.id)
   const { data: creatives } = await supabase
     .from('creatives')
-    .select('id, initiative_id, metadata')
+    .select('id, initiative_id, content')
     .in('initiative_id', initiativeIds)
     .eq('workspace_id', workspaceId)
 
@@ -78,8 +78,9 @@ export async function getCampaigns(
       new Set(
         initCreativeIds.flatMap((cid) => {
           const creative = creatives?.find((c) => c.id === cid)
-          return creative?.metadata?.channels
-            ? (creative.metadata.channels as string[])
+          const cContent = creative?.content as Record<string, unknown> | null
+          return cContent?.channels
+            ? (cContent.channels as string[])
             : initiative.channel
               ? [initiative.channel]
               : []
@@ -152,7 +153,7 @@ export async function getLandingPages(
 ): Promise<LandingPageData[]> {
   const { data, error } = await supabase
     .from('creatives')
-    .select('id, title, status, metadata, created_at')
+    .select('id, variant_label, status, content, created_at')
     .eq('workspace_id', workspaceId)
     .eq('type', 'landing_page')
     .order('created_at', { ascending: false })
@@ -165,10 +166,10 @@ export async function getLandingPages(
   if (!data?.length) return []
 
   return data.map((lp) => {
-    const meta = (lp.metadata ?? {}) as Record<string, unknown>
+    const meta = (lp.content ?? {}) as Record<string, unknown>
     return {
       id: lp.id,
-      name: lp.title,
+      name: (meta.name as string) || lp.variant_label || 'Sin título',
       slug: (meta.slug as string) ?? lp.id,
       status: lp.status,
       visits: (meta.visits as number) ?? 0,

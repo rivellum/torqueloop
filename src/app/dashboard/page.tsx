@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getActiveWorkspaceId } from '@/lib/workspace-server'
 import { getOverviewMetrics, getRecentActivity, getPendingCreatives } from '@/lib/queries/overview'
+import { getCreativeTitle } from '@/types/database'
 import { MetricCard } from '@/components/dashboard/metric-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -150,7 +151,7 @@ export default async function DashboardOverviewPage() {
                 {pendingCreatives.map((creative) => (
                   <div key={creative.id} className="flex items-center justify-between rounded-lg border p-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{creative.title}</p>
+                      <p className="text-sm font-medium truncate">{getCreativeTitle(creative)}</p>
                       <p className="text-xs text-muted-foreground capitalize">{creative.type}</p>
                     </div>
                     <Badge variant="secondary" className="ml-2 shrink-0">

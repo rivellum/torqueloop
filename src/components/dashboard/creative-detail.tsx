@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { Creative } from '@/types/database'
+import { getCreativeTitle, getCreativeStorageUrl, getCreativeMimeType } from '@/types/database'
 
 interface CreativeDetailProps {
   creative: Creative
@@ -26,8 +27,12 @@ const TYPE_LABELS: Record<string, string> = {
 export function CreativeDetail({ creative }: CreativeDetailProps) {
   const statusInfo = STATUS_MAP[creative.status] ?? { label: creative.status, variant: 'secondary' as const }
   const typeLabel = TYPE_LABELS[creative.type] ?? creative.type
-  const mediaUrl = creative.metadata?.media_url as string | undefined
-  const isVideo = creative.type === 'video' || mediaUrl?.match(/\.(mp4|mov|webm)$/i)
+  const mediaUrl = getCreativeStorageUrl(creative)
+  const mimeType = getCreativeMimeType(creative)
+  const isVideo = mimeType?.startsWith('video/') || creative.type === 'video' || mediaUrl?.match(/\.(mp4|mov|webm)$/i)
+  const title = getCreativeTitle(creative)
+  const duration = creative.content?.duration_seconds as number | undefined
+  const dimensions = creative.content?.dimensions as { width: number; height: number } | undefined
 
   return (
     <div className="space-y-6">
@@ -41,12 +46,11 @@ export function CreativeDetail({ creative }: CreativeDetailProps) {
                   src={mediaUrl}
                   controls
                   className="aspect-video w-full"
-                  poster={creative.metadata?.thumbnail_url as string | undefined}
                 />
               ) : (
                 <img
                   src={mediaUrl}
-                  alt={creative.title}
+                  alt={title}
                   className="aspect-video w-full object-contain"
                 />
               )
@@ -64,16 +68,16 @@ export function CreativeDetail({ creative }: CreativeDetailProps) {
         <CardContent className="space-y-4 p-4">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-xl font-semibold">{creative.title}</h2>
+              <h2 className="text-xl font-semibold">{title}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{typeLabel}</p>
             </div>
             <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
           </div>
 
-          {creative.content && (
+          {creative.variant_label && (
             <div>
-              <h3 className="mb-1 text-sm font-medium text-muted-foreground">Contenido</h3>
-              <p className="whitespace-pre-wrap text-sm">{creative.content}</p>
+              <h3 className="mb-1 text-sm font-medium text-muted-foreground">Variante</h3>
+              <p className="text-sm">{creative.variant_label}</p>
             </div>
           )}
 
@@ -92,10 +96,21 @@ export function CreativeDetail({ creative }: CreativeDetailProps) {
                 timeStyle: 'short',
               })}
             </div>
-            <div>
-              <span className="text-muted-foreground">Generado por:</span>{' '}
-              {creative.generated_by === 'ai' ? 'IA' : creative.generated_by === 'human' ? 'Humano' : 'Híbrido'}
-            </div>
+            {duration && (
+              <div>
+                <span className="text-muted-foreground">Duración:</span> {duration}s
+              </div>
+            )}
+            {dimensions && (
+              <div>
+                <span className="text-muted-foreground">Resolución:</span> {dimensions.width}×{dimensions.height}
+              </div>
+            )}
+            {creative.brand_alignment_score != null && (
+              <div>
+                <span className="text-muted-foreground">Brand Score:</span> {creative.brand_alignment_score.toFixed(1)}/10
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

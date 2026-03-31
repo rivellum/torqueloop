@@ -82,6 +82,8 @@ export interface PendingCreative {
   id: string
   title: string
   type: string
+  content: Record<string, unknown> | null
+  variant_label: string | null
   created_at: string
 }
 
@@ -92,7 +94,7 @@ export async function getPendingCreatives(
 ): Promise<PendingCreative[]> {
   const { data, error } = await supabase
     .from('approval_queue')
-    .select('id, created_at, creatives(id, title, type)')
+    .select('id, created_at, creatives(id, variant_label, type, content)')
     .eq('workspace_id', workspaceId)
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
@@ -105,10 +107,13 @@ export async function getPendingCreatives(
 
   return (data ?? []).map((item: Record<string, unknown>) => {
     const creative = item.creatives as Record<string, unknown> | null
+    const cContent = creative?.content as Record<string, unknown> | null
     return {
       id: (item.id as string) ?? (creative?.id as string) ?? '',
-      title: (creative?.title as string) ?? 'Untitled',
+      title: (cContent?.name as string) || (creative?.variant_label as string) || 'Sin título',
       type: (creative?.type as string) ?? 'unknown',
+      content: cContent as Record<string, unknown> | null,
+      variant_label: (creative?.variant_label as string) || null,
       created_at: item.created_at as string,
     }
   })
