@@ -4,6 +4,8 @@ import {
   getScoreBandLabel,
   getStatusLabel,
   getNextStatuses,
+  validateStatusTransition,
+  StatusTransitionError,
 } from '@/types/proposals'
 import {
   createOpportunitySchema,
@@ -239,6 +241,196 @@ describe('Proposal Factory — Zod schemas', () => {
         status: ['intake', 'scored'],
       })
       expect(result.success).toBe(true)
+    })
+  })
+})
+
+describe('Status transition guard — validateStatusTransition', () => {
+  describe('invalid transitions (no gates needed)', () => {
+    it('rejects drafting → sent', () => {
+      expect(() => validateStatusTransition('drafting', 'sent')).toThrow(StatusTransitionError)
+      expect(() => validateStatusTransition('drafting', 'sent')).toThrow(/Invalid transition/)
+    })
+
+    it('rejects scored → ready_to_send', () => {
+      expect(() => validateStatusTransition('scored', 'ready_to_send')).toThrow(StatusTransitionError)
+    })
+
+    it('rejects human_review → sent', () => {
+      expect(() => validateStatusTransition('human_review', 'sent')).toThrow(StatusTransitionError)
+    })
+
+    it('rejects intake → won', () => {
+      expect(() => validateStatusTransition('intake', 'won')).toThrow(StatusTransitionError)
+    })
+
+    it('rejects sent → intake (backwards)', () => {
+      expect(() => validateStatusTransition('sent', 'intake')).toThrow(StatusTransitionError)
+    })
+
+    it('rejects won → anything (terminal)', () => {
+      expect(() => validateStatusTransition('won', 'drafting')).toThrow(StatusTransitionError)
+    })
+  })
+
+  describe('ready_to_send gate — requires approved strategy lock', () => {
+    it('blocks human_review → ready_to_send without approved review', () => {
+      expect(() =>
+        validateStatusTransition('human_review', 'ready_to_send', {
+          hasApprovedSendGate: false,
+        })
+      ).toThrow(StatusTransitionError)
+      expect(() =>
+        validateStatusTransition('human_review', 'ready_to_send', {
+          hasApprovedSendGate: false,
+        })
+      ).toThrow(/missing approved strategy lock/)
+    })
+
+    it('allows human_review → ready_to_send with approved review', () => {
+      expect(() =>
+        validateStatusTransition('human_review', 'ready_to_send', {
+          hasApprovedSendGate: true,
+        })
+      ).not.toThrow()
+    })
+  })
+
+  describe('sent gate — requires selected draft + send gate + package ready', () => {
+    it('blocks ready_to_send → sent without approved send gate', () => {
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: true,
+          hasApprovedSendGate: false,
+          packageReady: true,
+        })
+      ).toThrow(StatusTransitionError)
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: true,
+          hasApprovedSendGate: false,
+          packageReady: true,
+        })
+      ).toThrow(/approved send gate/)
+    })
+
+    it('blocks ready_to_send → sent without selected draft', () => {
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: false,
+          hasApprovedSendGate: true,
+          packageReady: true,
+        })
+      ).toThrow(StatusTransitionError)
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: false,
+          hasApprovedSendGate: true,
+          packageReady: true,
+        })
+      ).toThrow(/selected draft/)
+    })
+
+    it('blocks ready_to_send → sent without package ready', () => {
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: true,
+          hasApprovedSendGate: true,
+          packageReady: false,
+        })
+      ).toThrow(StatusTransitionError)
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: true,
+          hasApprovedSendGate: true,
+          packageReady: false,
+        })
+      ).toThrow(/package marked ready/)
+    })
+
+    it('blocks ready_to_send → sent with nothing satisfied', () => {
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: false,
+          hasApprovedSendGate: false,
+          packageReady: false,
+        })
+      ).toThrow(/missing selected draft, approved send gate review, package marked ready/)
+    })
+
+    it('allows ready_to_send → sent with all gates satisfied', () => {
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: true,
+          hasApprovedSendGate: true,
+          packageReady: true,
+        })
+      ).not.toThrow()
+    })
+  })
+
+  describe('valid paths succeed', () => {
+    it('allows intake → scored', () => {
+      expect(() => validateStatusTransition('intake', 'scored')).not.toThrow()
+    })
+
+    it('allows scored → drafting', () => {
+      expect(() => validateStatusTransition('scored', 'drafting')).not.toThrow()
+    })
+
+    it('allows drafting → human_review', () => {
+      expect(() => validateStatusTransition('drafting', 'human_review')).not.toThrow()
+    })
+
+    it('allows human_review → drafting (revision)', () => {
+      expect(() => validateStatusTransition('human_review', 'drafting')).not.toThrow()
+    })
+
+    it('allows sent → replied', () => {
+      expect(() => validateStatusTransition('sent', 'replied')).not.toThrow()
+    })
+
+    it('allows replied → call_booked', () => {
+      expect(() => validateStatusTransition('replied', 'call_booked')).not.toThrow()
+    })
+
+    it('allows call_booked → proposal_sent → won', () => {
+      expect(() => validateStatusTransition('call_booked', 'proposal_sent')).not.toThrow()
+      expect(() => validateStatusTransition('proposal_sent', 'won')).not.toThrow()
+    })
+
+    it('allows any → skipped from intake or scored', () => {
+      expect(() => validateStatusTransition('intake', 'skipped')).not.toThrow()
+      expect(() => validateStatusTransition('scored', 'skipped')).not.toThrow()
+    })
+
+    it('allows same-status (no-op)', () => {
+      expect(() => validateStatusTransition('drafting', 'drafting')).not.toThrow()
+    })
+  })
+
+  describe('full reviewed path — intake to sent', () => {
+    it('succeeds through the complete happy path', () => {
+      // intake → scored
+      expect(() => validateStatusTransition('intake', 'scored')).not.toThrow()
+      // scored → drafting
+      expect(() => validateStatusTransition('scored', 'drafting')).not.toThrow()
+      // drafting → human_review
+      expect(() => validateStatusTransition('drafting', 'human_review')).not.toThrow()
+      // human_review → ready_to_send (with approved strategy lock)
+      expect(() =>
+        validateStatusTransition('human_review', 'ready_to_send', {
+          hasApprovedSendGate: true,
+        })
+      ).not.toThrow()
+      // ready_to_send → sent (with all gates)
+      expect(() =>
+        validateStatusTransition('ready_to_send', 'sent', {
+          hasSelectedDraft: true,
+          hasApprovedSendGate: true,
+          packageReady: true,
+        })
+      ).not.toThrow()
     })
   })
 })

@@ -9,7 +9,7 @@ import type {
   ProposalPackage,
   OpportunityStatus,
 } from '@/types/proposals'
-import { getScoreBand } from '@/types/proposals'
+import { getScoreBand, validateStatusTransition } from '@/types/proposals'
 import {
   createOpportunitySchema,
   updateOpportunitySchema,
@@ -115,6 +115,73 @@ export async function updateOpportunity(
 ): Promise<Opportunity> {
   const { id, ...updates } = updateOpportunitySchema.parse(input)
   const supabase = await createSupabaseServerClient()
+
+  // ── Status transition guard ──────────────────────────────────────────────
+  if (updates.status) {
+    // Fetch current record to get existing status
+    const { data: current, error: fetchError } = await supabase
+      .from('opportunities')
+      .select('status')
+      .eq('id', id)
+      .eq('workspace_id', updates.workspace_id!)
+      .single()
+
+    if (fetchError) throw new Error(`Failed to fetch opportunity: ${fetchError.message}`)
+
+    const currentStatus = (current as { status: OpportunityStatus }).status
+    const nextStatus = updates.status as OpportunityStatus
+
+    // If the status is actually changing, validate the transition
+    if (currentStatus !== nextStatus) {
+      // For send-gated and ready-gated transitions, pull gate context
+      if (nextStatus === 'sent' || nextStatus === 'ready_to_send') {
+        const [draftsRes, reviewsRes, packageRes] = await Promise.all([
+          supabase
+            .from('proposal_drafts')
+            .select('id')
+            .eq('opportunity_id', id)
+            .eq('workspace_id', updates.workspace_id!)
+            .eq('selected', true)
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('proposal_reviews')
+            .select('review_type, status')
+            .eq('opportunity_id', id)
+            .eq('workspace_id', updates.workspace_id!),
+          supabase
+            .from('proposal_packages')
+            .select('package_status')
+            .eq('opportunity_id', id)
+            .eq('workspace_id', updates.workspace_id!)
+            .maybeSingle(),
+        ])
+
+        const reviews = (reviewsRes.data ?? []) as { review_type: string; status: string }[]
+        const pkg = packageRes.data as { package_status: string } | null
+
+        const hasSelectedDraft = draftsRes.data !== null
+        const hasApprovedSendGate = reviews.some(
+          (r) => r.review_type === 'proposal_send_gate' && r.status === 'approved'
+        )
+        const hasApprovedStrategyLock = reviews.some(
+          (r) => r.review_type === 'proposal_strategy_lock' && r.status === 'approved'
+        )
+        const packageReady = pkg?.package_status === 'ready'
+
+        validateStatusTransition(currentStatus, nextStatus, {
+          hasSelectedDraft,
+          // For ready_to_send: require strategy_lock. For sent: require send_gate.
+          hasApprovedSendGate: nextStatus === 'ready_to_send'
+            ? hasApprovedStrategyLock
+            : hasApprovedSendGate,
+          packageReady,
+        })
+      } else {
+        validateStatusTransition(currentStatus, nextStatus)
+      }
+    }
+  }
 
   const { data, error } = await supabase
     .from('opportunities')

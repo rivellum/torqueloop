@@ -188,3 +188,65 @@ export function getNextStatuses(current: OpportunityStatus): OpportunityStatus[]
   }
   return flow[current] ?? []
 }
+
+// ─── Status transition validation ───────────────────────────────────────────
+
+export class StatusTransitionError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'StatusTransitionError'
+  }
+}
+
+/**
+ * Centralized status transition guard.
+ * Validates that a status move is allowed by the workflow graph
+ * and (for send-gated transitions) that required gates are satisfied.
+ *
+ * @param current     Current opportunity status
+ * @param next        Requested new status
+ * @param gates       Optional gate context for send-gated transitions
+ * @throws StatusTransitionError if the transition is not allowed
+ */
+export function validateStatusTransition(
+  current: OpportunityStatus,
+  next: OpportunityStatus,
+  gates?: {
+    hasSelectedDraft?: boolean
+    hasApprovedSendGate?: boolean
+    packageReady?: boolean
+  }
+): void {
+  // Same-status is always fine (no-op)
+  if (current === next) return
+
+  const allowed = getNextStatuses(current)
+  if (!allowed.includes(next)) {
+    throw new StatusTransitionError(
+      `Invalid transition: '${current}' → '${next}'. ` +
+      `Allowed from '${current}': [${allowed.join(', ')}]`
+    )
+  }
+
+  // Send gate: moving TO 'sent' requires approved send gate + selected draft + package ready
+  if (next === 'sent') {
+    const missing: string[] = []
+    if (!gates?.hasSelectedDraft) missing.push('selected draft')
+    if (!gates?.hasApprovedSendGate) missing.push('approved send gate review')
+    if (!gates?.packageReady) missing.push('package marked ready')
+    if (missing.length > 0) {
+      throw new StatusTransitionError(
+        `Cannot move to 'sent': missing ${missing.join(', ')}`
+      )
+    }
+  }
+
+  // Ready gate: moving TO 'ready_to_send' requires an approved strategy_lock review
+  if (next === 'ready_to_send') {
+    if (!gates?.hasApprovedSendGate) {
+      throw new StatusTransitionError(
+        `Cannot move to 'ready_to_send': missing approved strategy lock review`
+      )
+    }
+  }
+}

@@ -120,7 +120,7 @@ export default async function OpportunityDetailPage({
                 <div className="mt-4 pt-4 border-t">
                   <p className="text-sm font-medium text-red-700 mb-2">Red Flags</p>
                   <ul className="text-sm text-red-600 space-y-1">
-                    {score.red_flags.map((flag, i) => (
+                    {score.red_flags.map((flag: string, i: number) => (
                       <li key={i}>⚠ {flag}</li>
                     ))}
                   </ul>
