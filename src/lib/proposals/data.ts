@@ -17,6 +17,8 @@ import {
   createDraftSchema,
   updateDraftSchema,
   createProofPointSchema,
+  updateProofPointSchema,
+  listProofPointsSchema,
   createPackageSchema,
   updatePackageSchema,
   listOpportunitiesSchema,
@@ -316,31 +318,32 @@ export async function selectDraft(
 // ─── Proof Points ───────────────────────────────────────────────────────────
 
 export async function listProofPoints(
-  workspaceId: string,
-  opts?: { active?: boolean; problem_type?: string; service_category?: string }
-): Promise<ProofPoint[]> {
+  input: z.infer<typeof listProofPointsSchema>
+): Promise<{ proof_points: ProofPoint[]; total: number }> {
+  const parsed = listProofPointsSchema.parse(input)
   const supabase = await createSupabaseServerClient()
 
   let query = supabase
     .from('proof_points')
-    .select()
-    .eq('workspace_id', workspaceId)
+    .select('*', { count: 'exact' })
+    .eq('workspace_id', parsed.workspace_id)
     .order('label')
+    .range(parsed.offset, parsed.offset + parsed.limit - 1)
 
-  if (opts?.active !== undefined) {
-    query = query.eq('active', opts.active)
+  if (parsed.active !== undefined) {
+    query = query.eq('active', parsed.active)
   }
-  if (opts?.problem_type) {
-    query = query.eq('problem_type', opts.problem_type)
+  if (parsed.problem_type) {
+    query = query.eq('problem_type', parsed.problem_type)
   }
-  if (opts?.service_category) {
-    query = query.eq('service_category', opts.service_category)
+  if (parsed.service_category) {
+    query = query.eq('service_category', parsed.service_category)
   }
 
-  const { data, error } = await query
+  const { data, error, count } = await query
 
   if (error) throw new Error(`Failed to list proof points: ${error.message}`)
-  return (data ?? []) as ProofPoint[]
+  return { proof_points: (data ?? []) as ProofPoint[], total: count ?? 0 }
 }
 
 export async function createProofPoint(
@@ -356,6 +359,24 @@ export async function createProofPoint(
     .single()
 
   if (error) throw new Error(`Failed to create proof point: ${error.message}`)
+  return data as ProofPoint
+}
+
+export async function updateProofPoint(
+  input: z.infer<typeof updateProofPointSchema>
+): Promise<ProofPoint> {
+  const { id, ...updates } = updateProofPointSchema.parse(input)
+  const supabase = await createSupabaseServerClient()
+
+  const { data, error } = await supabase
+    .from('proof_points')
+    .update(updates)
+    .eq('id', id)
+    .eq('workspace_id', updates.workspace_id!)
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to update proof point: ${error.message}`)
   return data as ProofPoint
 }
 

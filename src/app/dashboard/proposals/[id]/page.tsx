@@ -21,7 +21,7 @@ export default async function OpportunityDetailPage({
   const opportunity = await getOpportunity(id, workspaceId)
   if (!opportunity) notFound()
 
-  const [score, drafts, reviewsData] = await Promise.all([
+  const [score, drafts, reviewsData, lead] = await Promise.all([
     getLatestScore(id, workspaceId),
     listDrafts(id, workspaceId),
     // Fetch proposal reviews
@@ -34,6 +34,18 @@ export default async function OpportunityDetailPage({
         .eq('workspace_id', workspaceId)
         .order('created_at', { ascending: false })
       return data ?? []
+    })(),
+    // Fetch linked lead if lead_id exists
+    (async () => {
+      if (!opportunity.lead_id) return null
+      const supabase = await createSupabaseServerClient()
+      const { data } = await supabase
+        .from('leads')
+        .select('id, name, email, phone, source, status, score, metadata')
+        .eq('id', opportunity.lead_id)
+        .eq('workspace_id', workspaceId)
+        .single()
+      return data
     })(),
   ])
   const reviews = reviewsData as { id: string; review_type: string; status: string; comments: string | null; checks: Record<string, boolean>; created_at: string }[]
@@ -166,6 +178,55 @@ export default async function OpportunityDetailPage({
               <p className="text-sm text-muted-foreground">Not scored yet</p>
             )}
           </div>
+
+          {/* Linked Lead */}
+          {lead && (
+            <div className="rounded-lg border p-6">
+              <h3 className="font-semibold mb-3">Linked Lead</h3>
+              <div className="space-y-2 text-sm">
+                {lead.name && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Name</span>
+                    <span>{lead.name}</span>
+                  </div>
+                )}
+                {lead.email && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Email</span>
+                    <span>{lead.email}</span>
+                  </div>
+                )}
+                {lead.phone && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Phone</span>
+                    <span>{lead.phone}</span>
+                  </div>
+                )}
+                {lead.source && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Source</span>
+                    <span>{lead.source}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Lead Status</span>
+                  <span className="capitalize">{lead.status}</span>
+                </div>
+                {lead.score !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Lead Score</span>
+                    <span>{lead.score}</span>
+                  </div>
+                )}
+              </div>
+              <Link
+                href={`/dashboard/leads`}
+                className="text-xs text-primary hover:underline mt-3 inline-block"
+              >
+                View in Leads →
+              </Link>
+            </div>
+          )}
 
           {/* Details */}
           <div className="rounded-lg border p-6 space-y-3 text-sm">

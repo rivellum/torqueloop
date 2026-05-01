@@ -20,7 +20,7 @@ const QUEUE_TABS: { label: string; statuses?: OpportunityStatus[] }[] = [
 export default async function ProposalsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; page?: string }>
 }) {
   const workspaceId = await getActiveWorkspaceId()
 
@@ -31,13 +31,17 @@ export default async function ProposalsPage({
   const params = await searchParams
   const activeTab = params.tab || 'All'
   const tabConfig = QUEUE_TABS.find((t) => t.label === activeTab) ?? QUEUE_TABS[0]
+  const page = Math.max(1, Number(params.page) || 1)
+  const pageSize = 25
 
   const { opportunities, total } = await listOpportunities({
     workspace_id: workspaceId,
     status: tabConfig.statuses,
-    limit: 50,
-    offset: 0,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
   })
+
+  const totalPages = Math.ceil(total / pageSize)
 
   return (
     <div className="space-y-6">
@@ -91,66 +95,87 @@ export default async function ProposalsPage({
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr className="text-left">
-                <th className="px-4 py-3 font-medium">Score</th>
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Source</th>
-                <th className="px-4 py-3 font-medium">Budget</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Recommendation</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {opportunities.map((opp) => (
-                <tr key={opp.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-4 py-3">
-                    <span className="text-muted-foreground">—</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/dashboard/proposals/${opp.id}`}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {opp.title}
-                    </Link>
-                    {opp.company_name && (
-                      <span className="text-muted-foreground ml-2">{opp.company_name}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {opp.source || '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {opp.budget_min || opp.budget_max ? (
-                      <span>
-                        {opp.budget_min ? `$${opp.budget_min.toLocaleString()}` : ''}
-                        {opp.budget_min && opp.budget_max ? ' – ' : ''}
-                        {opp.budget_max ? `$${opp.budget_max.toLocaleString()}` : ''}
-                        {opp.currency !== 'USD' ? ` ${opp.currency}` : ''}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted">
-                      {getStatusLabel(opp.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    —
-                  </td>
+        <>
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr className="text-left">
+                  <th className="px-4 py-3 font-medium">Score</th>
+                  <th className="px-4 py-3 font-medium">Title</th>
+                  <th className="px-4 py-3 font-medium">Source</th>
+                  <th className="px-4 py-3 font-medium">Budget</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="px-4 py-3 text-sm text-muted-foreground border-t bg-muted/30">
-            {total} {total === 1 ? 'opportunity' : 'opportunities'}
+              </thead>
+              <tbody className="divide-y">
+                {opportunities.map((opp) => (
+                  <tr key={opp.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <span className="text-muted-foreground">—</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/dashboard/proposals/${opp.id}`}
+                        className="font-medium text-foreground hover:underline"
+                      >
+                        {opp.title}
+                      </Link>
+                      {opp.company_name && (
+                        <span className="text-muted-foreground ml-2">{opp.company_name}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {opp.source || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {opp.budget_min || opp.budget_max ? (
+                        <span>
+                          {opp.budget_min ? `$${opp.budget_min.toLocaleString()}` : ''}
+                          {opp.budget_min && opp.budget_max ? ' – ' : ''}
+                          {opp.budget_max ? `$${opp.budget_max.toLocaleString()}` : ''}
+                          {opp.currency !== 'USD' ? ` ${opp.currency}` : ''}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted">
+                        {getStatusLabel(opp.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-4 py-3 text-sm text-muted-foreground border-t bg-muted/30 flex items-center justify-between">
+              <span>{total} {total === 1 ? 'opportunity' : 'opportunities'}</span>
+              {totalPages > 1 && (
+                <div className="flex gap-2">
+                  {page > 1 && (
+                    <Link
+                      href={`/dashboard/proposals?tab=${activeTab}&page=${page - 1}`}
+                      className="rounded border px-2.5 py-1 text-xs hover:bg-muted transition-colors"
+                    >
+                      Previous
+                    </Link>
+                  )}
+                  <span className="px-2.5 py-1 text-xs text-muted-foreground">
+                    Page {page} of {totalPages}
+                  </span>
+                  {page < totalPages && (
+                    <Link
+                      href={`/dashboard/proposals?tab=${activeTab}&page=${page + 1}`}
+                      className="rounded border px-2.5 py-1 text-xs hover:bg-muted transition-colors"
+                    >
+                      Next
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

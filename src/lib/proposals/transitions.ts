@@ -9,6 +9,7 @@ export interface TransitionContext {
   hasApprovedStrategyLock: boolean
   hasApprovedSendGate: boolean
   hasSelectedDraft: boolean
+  packageReady?: boolean
 }
 
 export interface TransitionResult {
@@ -49,7 +50,7 @@ export function validateStatusTransition(ctx: TransitionContext): TransitionResu
     }
   }
 
-  // ─── Gate: sent requires approved send gate + selected draft ──────────
+  // ─── Gate: sent requires approved send gate + selected draft + package ready ──
   if (targetStatus === 'sent') {
     if (!ctx.hasSelectedDraft) {
       return {
@@ -61,6 +62,12 @@ export function validateStatusTransition(ctx: TransitionContext): TransitionResu
       return {
         allowed: false,
         error: `Cannot mark as 'sent': send gate review must be approved first.`,
+      }
+    }
+    if (ctx.packageReady === false) {
+      return {
+        allowed: false,
+        error: `Cannot mark as 'sent': proposal package must be marked ready first.`,
       }
     }
   }

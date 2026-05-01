@@ -48,7 +48,7 @@ export async function PATCH(
           .eq('opportunity_id', id)
           .eq('workspace_id', workspaceId)
 
-        const reviewMap = new Map(reviews?.map((r) => [r.review_type, r.status]) ?? [])
+        const reviewMap = new Map(reviews?.map((r: { review_type: string; status: string }) => [r.review_type, r.status]) ?? [])
         const hasApprovedStrategyLock = reviewMap.get('proposal_strategy_lock') === 'approved'
         const hasApprovedSendGate = reviewMap.get('proposal_send_gate') === 'approved'
 
@@ -62,6 +62,16 @@ export async function PATCH(
 
         const hasSelectedDraft = (selectedDraftCount ?? 0) > 0
 
+        // Check package readiness
+        const { data: pkg } = await supabase
+          .from('proposal_packages')
+          .select('package_status')
+          .eq('opportunity_id', id)
+          .eq('workspace_id', workspaceId)
+          .maybeSingle()
+
+        const packageReady = (pkg as { package_status: string } | null)?.package_status === 'ready'
+
         // Validate the transition
         const result = validateStatusTransition({
           currentStatus,
@@ -69,6 +79,7 @@ export async function PATCH(
           hasApprovedStrategyLock,
           hasApprovedSendGate,
           hasSelectedDraft,
+          packageReady,
         })
 
         if (!result.allowed) {

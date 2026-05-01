@@ -100,6 +100,19 @@ export const createProofPointSchema = z.object({
   active: z.boolean().default(true),
 })
 
+export const updateProofPointSchema = createProofPointSchema.partial().extend({
+  id: z.string().uuid(),
+})
+
+export const listProofPointsSchema = z.object({
+  workspace_id: z.string().uuid(),
+  active: z.boolean().optional(),
+  problem_type: z.string().optional(),
+  service_category: z.string().optional(),
+  limit: z.number().min(1).max(200).default(50),
+  offset: z.number().min(0).default(0),
+})
+
 // ─── Proposal Package ───────────────────────────────────────────────────────
 
 export const createPackageSchema = z.object({

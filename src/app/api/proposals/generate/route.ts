@@ -1,0 +1,80 @@
+// POST /api/proposals/generate — generate draft variants for an opportunity
+// Never auto-sends. All drafts require human review.
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { getActiveWorkspaceId } from '@/lib/workspace-server'
+import { getOpportunity, getLatestScore, listProofPoints, createDraft } from '@/lib/proposals/data'
+import { generateDrafts, type DraftType } from '@/lib/proposals/draft-generator'
+import { z } from 'zod'
+
+const generateSchema = z.object({
+  opportunity_id: z.string().uuid(),
+  draft_type: z.enum(['cover_letter', 'proposal_email', 'qwilr_letter']),
+  budget_info: z.string().max(500).optional(),
+})
+
+export async function POST(req: NextRequest) {
+  try {
+    const workspaceId = await getActiveWorkspaceId()
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'No active workspace' }, { status: 401 })
+    }
+
+    const body = await req.json()
+    const parsed = generateSchema.parse(body)
+
+    // Fetch opportunity, score, and proof points in parallel
+    const [opportunity, score, proofPointsResult] = await Promise.all([
+      getOpportunity(parsed.opportunity_id, workspaceId),
+      getLatestScore(parsed.opportunity_id, workspaceId),
+      listProofPoints({ workspace_id: workspaceId, active: true, limit: 100, offset: 0 }),
+    ])
+
+    if (!opportunity) {
+      return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 })
+    }
+
+    // Generate drafts
+    const generated = await generateDrafts({
+      opportunity,
+      score,
+      proofPoints: proofPointsResult.proof_points,
+      draftType: parsed.draft_type as DraftType,
+      budgetInfo: parsed.budget_info,
+    })
+
+    // Persist drafts to database
+    const saved = []
+    for (const draft of generated) {
+      const result = await createDraft({
+        workspace_id: workspaceId,
+        opportunity_id: parsed.opportunity_id,
+        draft_type: draft.draft_type,
+        variant_name: draft.variant_name,
+        angle: draft.angle,
+        body: draft.body,
+        selected: false,
+      })
+      saved.push(result)
+    }
+
+    // Update opportunity status to drafting if currently scored
+    if (opportunity.status === 'scored') {
+      const supabase = await createSupabaseServerClient()
+      await supabase
+        .from('opportunities')
+        .update({ status: 'drafting', updated_at: new Date().toISOString() })
+        .eq('id', opportunity.id)
+        .eq('workspace_id', workspaceId)
+    }
+
+    return NextResponse.json({
+      drafts: saved,
+      count: saved.length,
+      message: `Generated ${saved.length} draft variants. Review and select one before proceeding.`,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
+}

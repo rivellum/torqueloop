@@ -12,6 +12,8 @@ import {
   createScoreSchema,
   createDraftSchema,
   createProofPointSchema,
+  updateProofPointSchema,
+  listProofPointsSchema,
   createPackageSchema,
   listOpportunitiesSchema,
 } from '@/lib/proposals/schemas'
@@ -431,6 +433,152 @@ describe('Status transition guard — validateStatusTransition', () => {
           packageReady: true,
         })
       ).not.toThrow()
+    })
+  })
+})
+
+describe('Proof point schemas', () => {
+  describe('createProofPointSchema', () => {
+    it('accepts valid input', () => {
+      const result = createProofPointSchema.safeParse({
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+        label: 'Test proof point',
+        metric: '50% improvement',
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('requires label and metric', () => {
+      const result = createProofPointSchema.safeParse({
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+      })
+      expect(result.success).toBe(false)
+    })
+
+    it('defaults active to true', () => {
+      const result = createProofPointSchema.parse({
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+        label: 'Test',
+        metric: '50%',
+      })
+      expect(result.active).toBe(true)
+    })
+  })
+
+  describe('updateProofPointSchema', () => {
+    it('accepts partial updates with id', () => {
+      const result = updateProofPointSchema.safeParse({
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+        label: 'Updated label',
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('requires id', () => {
+      const result = updateProofPointSchema.safeParse({
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+        label: 'Updated',
+      })
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('listProofPointsSchema', () => {
+    it('accepts workspace_id only', () => {
+      const result = listProofPointsSchema.safeParse({
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+      })
+      expect(result.success).toBe(true)
+    })
+
+    it('defaults limit to 50 and offset to 0', () => {
+      const result = listProofPointsSchema.parse({
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+      })
+      expect(result.limit).toBe(50)
+      expect(result.offset).toBe(0)
+    })
+
+    it('accepts filter params', () => {
+      const result = listProofPointsSchema.safeParse({
+        workspace_id: '550e8400-e29b-41d4-a716-446655440001',
+        active: true,
+        problem_type: 'paid_advertising',
+        service_category: 'PPC',
+        limit: 10,
+        offset: 20,
+      })
+      expect(result.success).toBe(true)
+    })
+  })
+})
+
+describe('Draft generator — mock mode', () => {
+  it('generates 3 mock variants when no API key', async () => {
+    const { generateDrafts } = await import('@/lib/proposals/draft-generator')
+    const drafts = await generateDrafts({
+      opportunity: {
+        id: 'test-id',
+        workspace_id: 'ws-id',
+        lead_id: null,
+        initiative_id: null,
+        channel_id: null,
+        source: 'upwork',
+        external_url: null,
+        title: 'Need PPC management for SaaS',
+        company_name: 'TestCo',
+        description: 'Looking for Google Ads help',
+        budget_min: 3000,
+        budget_max: 5000,
+        currency: 'USD',
+        status: 'scored',
+        posted_at: null,
+        deadline_at: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+      score: {
+        id: 'score-id',
+        workspace_id: 'ws-id',
+        opportunity_id: 'test-id',
+        total_score: 72,
+        icp_fit: 15,
+        problem_fit: 16,
+        budget_fit: 12,
+        proof_match: 10,
+        urgency: 8,
+        authority_signal: 6,
+        competition_edge: 5,
+        red_flags: [],
+        recommendation: 'Good fit',
+        model_version: 'v1',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      proofPoints: [
+        {
+          id: 'pp-1',
+          workspace_id: 'ws-id',
+          label: '29.5x ROAS',
+          metric: '29.5x return on ad spend',
+          client_context: 'Slay the PE',
+          problem_type: 'paid_advertising',
+          service_category: 'PPC',
+          best_fit: 'Companies with ad spend',
+          do_not_use_when: 'No ad spend',
+          source_note: 'Internal',
+          active: true,
+        },
+      ],
+      draftType: 'cover_letter',
+    })
+
+    expect(drafts).toHaveLength(3)
+    drafts.forEach((d) => {
+      expect(d.draft_type).toBe('cover_letter')
+      expect(d.variant_name).toBeTruthy()
+      expect(d.angle).toBeTruthy()
+      expect(d.body).toBeTruthy()
     })
   })
 })
