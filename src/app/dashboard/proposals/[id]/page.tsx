@@ -4,6 +4,7 @@ import { getOpportunity, getLatestScore, listDrafts } from '@/lib/proposals/data
 import { getScoreBand, getScoreBandLabel, getStatusLabel } from '@/types/proposals'
 import Link from 'next/link'
 import { ArrowLeft, Briefcase, ExternalLink } from 'lucide-react'
+import { DraftsPanel } from '@/components/dashboard/drafts-panel'
 
 export default async function OpportunityDetailPage({
   params,
@@ -114,29 +115,7 @@ export default async function OpportunityDetailPage({
           )}
 
           {/* Drafts */}
-          {drafts.length > 0 && (
-            <div className="rounded-lg border p-6">
-              <h2 className="font-semibold mb-3">Drafts ({drafts.length})</h2>
-              <div className="space-y-3">
-                {drafts.map((draft) => (
-                  <div key={draft.id} className="rounded border p-4">
-                    <div className="flex items-center gap-2 mb-2 text-sm">
-                      <span className="font-medium">{draft.variant_name || draft.draft_type}</span>
-                      {draft.selected && (
-                        <span className="rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-xs">Selected</span>
-                      )}
-                      {draft.angle && (
-                        <span className="text-muted-foreground">— {draft.angle}</span>
-                      )}
-                    </div>
-                    <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-6">
-                      {draft.body}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <DraftsPanel opportunityId={opportunity.id} initialDrafts={drafts} />
         </div>
 
         {/* Sidebar */}
