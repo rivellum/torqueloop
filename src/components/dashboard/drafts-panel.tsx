@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ProposalDraft, DraftType } from '@/types/proposals'
-import { Plus, Check, Edit3, X } from 'lucide-react'
+import { Plus, Check, Edit3, X, Sparkles } from 'lucide-react'
 
 const DRAFT_TYPES: { value: DraftType; label: string }[] = [
   { value: 'cover_letter', label: 'Cover Letter' },
@@ -17,14 +17,17 @@ const DRAFT_TYPES: { value: DraftType; label: string }[] = [
 interface DraftsPanelProps {
   opportunityId: string
   initialDrafts: ProposalDraft[]
+  opportunityStatus?: string
 }
 
-export function DraftsPanel({ opportunityId, initialDrafts }: DraftsPanelProps) {
+export function DraftsPanel({ opportunityId, initialDrafts, opportunityStatus }: DraftsPanelProps) {
   const router = useRouter()
   const [drafts, setDrafts] = useState(initialDrafts)
   const [showNew, setShowNew] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const [generating, setGenerating] = useState(false)
 
   // New draft form
   const [newType, setNewType] = useState<DraftType>('cover_letter')
@@ -34,6 +37,30 @@ export function DraftsPanel({ opportunityId, initialDrafts }: DraftsPanelProps) 
 
   // Edit state
   const [editBody, setEditBody] = useState('')
+
+  async function handleGenerate() {
+    setGenerating(true)
+    try {
+      const res = await fetch('/api/proposals/generate-drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          opportunity_id: opportunityId,
+          draft_types: ['cover_letter', 'proposal_email', 'qwilr_letter'],
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to generate drafts')
+      const data = await res.json()
+      if (data.drafts) {
+        setDrafts([...data.drafts, ...drafts])
+        router.refresh()
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   async function handleCreate() {
     if (!newBody.trim()) return
@@ -105,13 +132,25 @@ export function DraftsPanel({ opportunityId, initialDrafts }: DraftsPanelProps) 
     <div className="rounded-lg border p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-semibold">Drafts ({drafts.length})</h2>
-        <button
-          onClick={() => setShowNew(!showNew)}
-          className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New Draft
-        </button>
+        <div className="flex gap-2">
+          {(['intake', 'scored', 'drafting'].includes(opportunityStatus || '')) && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Sparkles className="h-4 w-4" />
+              {generating ? 'Generating...' : 'AI Generate'}
+            </button>
+          )}
+          <button
+            onClick={() => setShowNew(!showNew)}
+            className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary/80 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            New Draft
+          </button>
+        </div>
       </div>
 
       {/* New draft form */}

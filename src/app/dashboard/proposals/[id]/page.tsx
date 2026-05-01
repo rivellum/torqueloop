@@ -8,6 +8,7 @@ import { ArrowLeft, Briefcase, ExternalLink } from 'lucide-react'
 import { DraftsPanel } from '@/components/dashboard/drafts-panel'
 import { ReviewPanel } from '@/components/dashboard/review-panel'
 import { OutcomeTracker } from '@/components/dashboard/outcome-tracker'
+import { LeadContext } from '@/components/dashboard/lead-context'
 
 export default async function OpportunityDetailPage({
   params,
@@ -130,7 +131,7 @@ export default async function OpportunityDetailPage({
           )}
 
           {/* Drafts */}
-          <DraftsPanel opportunityId={opportunity.id} initialDrafts={drafts} />
+          <DraftsPanel opportunityId={opportunity.id} initialDrafts={drafts} opportunityStatus={opportunity.status} />
 
           {/* Human Review */}
           <ReviewPanel
@@ -168,6 +169,12 @@ export default async function OpportunityDetailPage({
           </div>
 
           {/* Details */}
+          <LeadContext
+            opportunityId={opportunity.id}
+            workspaceId={workspaceId}
+            currentLeadId={opportunity.lead_id}
+          />
+
           <div className="rounded-lg border p-6 space-y-3 text-sm">
             <h3 className="font-semibold">Details</h3>
             <div className="flex justify-between">
