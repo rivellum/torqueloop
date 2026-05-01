@@ -1,10 +1,12 @@
 import { redirect, notFound } from 'next/navigation'
 import { getActiveWorkspaceId } from '@/lib/workspace-server'
 import { getOpportunity, getLatestScore, listDrafts } from '@/lib/proposals/data'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getScoreBand, getScoreBandLabel, getStatusLabel } from '@/types/proposals'
 import Link from 'next/link'
 import { ArrowLeft, Briefcase, ExternalLink } from 'lucide-react'
 import { DraftsPanel } from '@/components/dashboard/drafts-panel'
+import { ReviewPanel } from '@/components/dashboard/review-panel'
 
 export default async function OpportunityDetailPage({
   params,
@@ -18,10 +20,22 @@ export default async function OpportunityDetailPage({
   const opportunity = await getOpportunity(id, workspaceId)
   if (!opportunity) notFound()
 
-  const [score, drafts] = await Promise.all([
+  const [score, drafts, reviewsData] = await Promise.all([
     getLatestScore(id, workspaceId),
     listDrafts(id, workspaceId),
+    // Fetch proposal reviews
+    (async () => {
+      const supabase = await createSupabaseServerClient()
+      const { data } = await supabase
+        .from('proposal_reviews')
+        .select()
+        .eq('opportunity_id', id)
+        .eq('workspace_id', workspaceId)
+        .order('created_at', { ascending: false })
+      return data ?? []
+    })(),
   ])
+  const reviews = reviewsData as { id: string; review_type: string; status: string; comments: string | null; checks: Record<string, boolean>; created_at: string }[]
 
   const band = score ? getScoreBand(score.total_score) : null
   const bandColors: Record<string, string> = {
@@ -116,6 +130,13 @@ export default async function OpportunityDetailPage({
 
           {/* Drafts */}
           <DraftsPanel opportunityId={opportunity.id} initialDrafts={drafts} />
+
+          {/* Human Review */}
+          <ReviewPanel
+            opportunityId={opportunity.id}
+            score={score?.total_score ?? 0}
+            initialReviews={reviews}
+          />
         </div>
 
         {/* Sidebar */}
