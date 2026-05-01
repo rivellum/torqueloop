@@ -20,7 +20,7 @@ const QUEUE_TABS: { label: string; statuses?: OpportunityStatus[] }[] = [
 export default async function ProposalsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; page?: string }>
 }) {
   const workspaceId = await getActiveWorkspaceId()
 
@@ -30,14 +30,20 @@ export default async function ProposalsPage({
 
   const params = await searchParams
   const activeTab = params.tab || 'All'
+  const currentPage = Math.max(1, parseInt(params.page || '1', 10))
+  const pageSize = 25
   const tabConfig = QUEUE_TABS.find((t) => t.label === activeTab) ?? QUEUE_TABS[0]
 
   const { opportunities, total } = await listOpportunities({
     workspace_id: workspaceId,
     status: tabConfig.statuses,
-    limit: 50,
-    offset: 0,
+    limit: pageSize,
+    offset: (currentPage - 1) * pageSize,
   })
+
+  const totalPages = Math.ceil(total / pageSize)
+  const hasPrev = currentPage > 1
+  const hasNext = currentPage < totalPages
 
   return (
     <div className="space-y-6">
@@ -147,8 +153,33 @@ export default async function ProposalsPage({
               ))}
             </tbody>
           </table>
-          <div className="px-4 py-3 text-sm text-muted-foreground border-t bg-muted/30">
-            {total} {total === 1 ? 'opportunity' : 'opportunities'}
+          <div className="px-4 py-3 text-sm text-muted-foreground border-t bg-muted/30 flex items-center justify-between">
+            <span>{total} {total === 1 ? 'opportunity' : 'opportunities'}</span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                {hasPrev ? (
+                  <Link
+                    href={`/dashboard/proposals?tab=${activeTab}&page=${currentPage - 1}`}
+                    className="rounded border px-2 py-1 text-xs hover:bg-muted transition-colors"
+                  >
+                    ← Prev
+                  </Link>
+                ) : (
+                  <span className="rounded border px-2 py-1 text-xs text-muted-foreground/40">← Prev</span>
+                )}
+                <span className="text-xs">Page {currentPage} of {totalPages}</span>
+                {hasNext ? (
+                  <Link
+                    href={`/dashboard/proposals?tab=${activeTab}&page=${currentPage + 1}`}
+                    className="rounded border px-2 py-1 text-xs hover:bg-muted transition-colors"
+                  >
+                    Next →
+                  </Link>
+                ) : (
+                  <span className="rounded border px-2 py-1 text-xs text-muted-foreground/40">Next →</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

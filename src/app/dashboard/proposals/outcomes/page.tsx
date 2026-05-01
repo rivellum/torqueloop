@@ -38,17 +38,38 @@ export default async function OutcomesPage() {
   const outcomeList = (outcomes ?? []) as unknown as OutcomeRow[]
 
   // Aggregate stats
-  const totalSent = outcomeList.filter((o) => o.outcome_type !== 'lost').length
+  const totalSent = outcomeList.filter((o) => ['sent', 'replied', 'call_booked', 'proposal_sent', 'won'].includes(o.outcome_type)).length || 1
   const totalWon = outcomeList.filter((o) => o.outcome_type === 'won').length
   const totalLost = outcomeList.filter((o) => o.outcome_type === 'lost').length
-  const totalReplied = outcomeList.filter((o) => o.outcome_type === 'replied' || o.outcome_type === 'call_booked' || o.outcome_type === 'proposal_sent' || o.outcome_type === 'won').length
-  const totalCalls = outcomeList.filter((o) => o.outcome_type === 'call_booked' || o.outcome_type === 'proposal_sent' || o.outcome_type === 'won').length
+  const totalReplied = outcomeList.filter((o) => ['replied', 'call_booked', 'proposal_sent', 'won'].includes(o.outcome_type)).length
+  const totalCalls = outcomeList.filter((o) => ['call_booked', 'proposal_sent', 'won'].includes(o.outcome_type)).length
+  const totalProposalsSent = outcomeList.filter((o) => ['proposal_sent', 'won'].includes(o.outcome_type)).length
   const totalRevenue = outcomeList
     .filter((o) => o.outcome_type === 'won' && o.value)
     .reduce((sum, o) => sum + (o.value ?? 0), 0)
 
-  const winRate = totalSent > 0 ? Math.round((totalWon / (totalWon + totalLost)) * 100) : 0
+  const winRate = (totalWon + totalLost) > 0 ? Math.round((totalWon / (totalWon + totalLost)) * 100) : 0
   const responseRate = totalSent > 0 ? Math.round((totalReplied / totalSent) * 100) : 0
+  const callRate = totalReplied > 0 ? Math.round((totalCalls / totalReplied) * 100) : 0
+
+  // Loss reason breakdown
+  const lossReasons = outcomeList
+    .filter((o) => o.outcome_type === 'lost' && o.loss_reason)
+    .reduce((acc, o) => {
+      acc[o.loss_reason!] = (acc[o.loss_reason!] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+  const topLossReason = Object.entries(lossReasons).sort(([, a], [, b]) => b - a)[0]
+
+  // Source performance
+  const sourceStats = outcomeList.reduce((acc, o) => {
+    const source = (o as any).opportunities?.source || 'unknown'
+    if (!acc[source]) acc[source] = { sent: 0, won: 0 }
+    acc[source].sent++
+    if (o.outcome_type === 'won') acc[source].won++
+    return acc
+  }, {} as Record<string, { sent: number; won: number }>)
+  const bestSource = Object.entries(sourceStats).sort(([, a], [, b]) => b.won - a.won)[0]
 
   const typeLabels: Record<string, string> = {
     replied: 'Replied',
@@ -90,7 +111,7 @@ export default async function OutcomesPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="rounded-lg border p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
             <Target className="h-4 w-4" />
@@ -119,7 +140,35 @@ export default async function OutcomesPage() {
           </div>
           <div className="text-2xl font-bold">{totalWon} / {totalLost}</div>
         </div>
+        <div className="rounded-lg border p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+            <BarChart3 className="h-4 w-4" />
+            Call Rate
+          </div>
+          <div className="text-2xl font-bold">{callRate}%</div>
+        </div>
       </div>
+
+      {/* Learning insights */}
+      {(topLossReason || bestSource) && (
+        <div className="rounded-lg border p-6 space-y-3">
+          <h2 className="font-semibold">Learning Insights</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
+            {topLossReason && (
+              <div>
+                <p className="text-muted-foreground">Most common loss reason</p>
+                <p className="font-medium">{lossReasonLabels[topLossReason[0]] || topLossReason[0]} ({topLossReason[1]}x)</p>
+              </div>
+            )}
+            {bestSource && (
+              <div>
+                <p className="text-muted-foreground">Best-performing source</p>
+                <p className="font-medium">{bestSource[0]} — {bestSource[1].won} won / {bestSource[1].sent} sent</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Outcomes list */}
       {outcomeList.length === 0 ? (
