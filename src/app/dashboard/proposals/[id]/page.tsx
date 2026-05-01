@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ArrowLeft, Briefcase, ExternalLink } from 'lucide-react'
 import { DraftsPanel } from '@/components/dashboard/drafts-panel'
 import { ReviewPanel } from '@/components/dashboard/review-panel'
+import { OutcomeTracker } from '@/components/dashboard/outcome-tracker'
 
 export default async function OpportunityDetailPage({
   params,
@@ -136,6 +137,12 @@ export default async function OpportunityDetailPage({
             opportunityId={opportunity.id}
             score={score?.total_score ?? 0}
             initialReviews={reviews}
+          />
+
+          {/* Outcome */}
+          <OutcomeTracker
+            opportunityId={opportunity.id}
+            currentStatus={opportunity.status}
           />
         </div>
 
