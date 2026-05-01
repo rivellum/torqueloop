@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Film, Megaphone, Globe, Users, CheckCircle } from 'lucide-react'
+import { LayoutDashboard, Film, Megaphone, Globe, Users, CheckCircle, Settings, Target, Briefcase } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -12,6 +12,9 @@ const navItems = [
   { href: '/dashboard/landing-pages', label: 'Landing Pages', icon: Globe },
   { href: '/dashboard/leads', label: 'Leads', icon: Users },
   { href: '/dashboard/approvals', label: 'Aprobaciones', icon: CheckCircle },
+  { href: '/dashboard/proposals', label: 'Proposal Factory', icon: Briefcase },
+  { href: '/dashboard/growth-loop', label: 'Growth Loop', icon: Target },
+  { href: '/dashboard/settings', label: 'Configuración', icon: Settings },
 ]
 
 export function Sidebar() {
@@ -21,9 +24,9 @@ export function Sidebar() {
     <aside className="hidden lg:flex h-screen w-64 flex-col border-r bg-background">
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-sm">TL</span>
+          <span className="text-primary-foreground font-bold text-sm">VS</span>
         </div>
-        <span className="font-semibold text-lg">TorqueLoop</span>
+        <span className="font-semibold text-lg">Volt Studios</span>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
