@@ -50,6 +50,28 @@ export default async function OutcomesPage() {
   const winRate = totalSent > 0 ? Math.round((totalWon / (totalWon + totalLost)) * 100) : 0
   const responseRate = totalSent > 0 ? Math.round((totalReplied / totalSent) * 100) : 0
 
+  // Loss reason breakdown
+  const lossReasonCounts: Record<string, number> = {}
+  outcomeList
+    .filter((o) => o.outcome_type === 'lost' && o.loss_reason)
+    .forEach((o) => {
+      lossReasonCounts[o.loss_reason!] = (lossReasonCounts[o.loss_reason!] || 0) + 1
+    })
+  const lossReasons = Object.entries(lossReasonCounts)
+    .sort((a, b) => b[1] - a[1])
+
+  // Source performance
+  const sourceStats: Record<string, { sent: number; won: number }> = {}
+  outcomeList.forEach((o) => {
+    const src = o.opportunities?.source || 'unknown'
+    if (!sourceStats[src]) sourceStats[src] = { sent: 0, won: 0 }
+    if (o.outcome_type !== 'lost') sourceStats[src].sent++
+    if (o.outcome_type === 'won') sourceStats[src].won++
+  })
+  const sources = Object.entries(sourceStats)
+    .filter(([, v]) => v.sent > 0)
+    .sort((a, b) => b[1].won - a[1].won)
+
   const typeLabels: Record<string, string> = {
     replied: 'Replied',
     call_booked: 'Call Booked',
@@ -120,6 +142,44 @@ export default async function OutcomesPage() {
           <div className="text-2xl font-bold">{totalWon} / {totalLost}</div>
         </div>
       </div>
+
+      {/* Insights panels */}
+      {outcomeList.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Loss reason breakdown */}
+          {lossReasons.length > 0 && (
+            <div className="rounded-lg border p-5">
+              <h3 className="font-semibold mb-3">Loss Reasons</h3>
+              <div className="space-y-2">
+                {lossReasons.map(([reason, count]) => (
+                  <div key={reason} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{lossReasonLabels[reason] || reason}</span>
+                    <span className="font-medium">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Source performance */}
+          {sources.length > 0 && (
+            <div className="rounded-lg border p-5">
+              <h3 className="font-semibold mb-3">Source Performance</h3>
+              <div className="space-y-2">
+                {sources.map(([source, stats]) => (
+                  <div key={source} className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{source}</span>
+                    <span>
+                      <span className="font-medium">{stats.won}</span>
+                      <span className="text-muted-foreground">/{stats.sent} won</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Outcomes list */}
       {outcomeList.length === 0 ? (
