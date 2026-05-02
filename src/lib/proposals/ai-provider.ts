@@ -1,5 +1,5 @@
 // AI provider for proposal draft generation
-// Uses Anthropic Claude or OpenAI when available; falls back to mock if env is missing.
+// Failover chain: Anthropic Claude → OpenAI GPT-4o → mock (in route layer)
 // Never auto-approves drafts. All generated drafts require human review.
 
 import Anthropic from '@anthropic-ai/sdk'
@@ -18,11 +18,14 @@ export interface GenerateResult {
   usage: { input: number; output: number }
 }
 
-// Detect which provider is available
-function getProvider(): { type: 'anthropic' | 'openai' | null } {
-  if (process.env.ANTHROPIC_API_KEY) return { type: 'anthropic' }
-  if (process.env.OPENAI_API_KEY) return { type: 'openai' }
-  return { type: null }
+type ProviderType = 'anthropic' | 'openai'
+
+// Returns ordered list of available providers based on env keys
+function getAvailableProviders(): ProviderType[] {
+  const providers: ProviderType[] = []
+  if (process.env.ANTHROPIC_API_KEY) providers.push('anthropic')
+  if (process.env.OPENAI_API_KEY) providers.push('openai')
+  return providers
 }
 
 // Anthropic Claude
@@ -76,25 +79,44 @@ async function generateWithOpenAI(req: GenerateRequest): Promise<GenerateResult>
   }
 }
 
-// Generate with timeout wrapper
+const PROVIDER_FNS: Record<ProviderType, (req: GenerateRequest) => Promise<GenerateResult>> = {
+  anthropic: generateWithAnthropic,
+  openai: generateWithOpenAI,
+}
+
+// Wrap a provider call with a timeout
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('AI_PROVIDER_TIMEOUT')), ms)
+  })
+  return Promise.race([promise, timeoutPromise])
+}
+
+// Generate with failover: Anthropic → OpenAI → throw (route layer handles mock)
 export async function generateDraft(req: GenerateRequest): Promise<GenerateResult> {
-  const provider = getProvider()
+  const providers = getAvailableProviders()
   const timeoutMs = req.timeoutMs || 30000
 
-  if (!provider.type) {
+  if (providers.length === 0) {
     throw new Error('NO_AI_PROVIDER')
   }
 
-  const generateFn = provider.type === 'anthropic' ? generateWithAnthropic : generateWithOpenAI
+  let lastError: Error | null = null
 
-  // Race against timeout
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('AI_PROVIDER_TIMEOUT')), timeoutMs)
-  })
+  for (const providerType of providers) {
+    try {
+      const result = await withTimeout(PROVIDER_FNS[providerType](req), timeoutMs)
+      return result
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      // Continue to next provider
+    }
+  }
 
-  return Promise.race([generateFn(req), timeoutPromise])
+  // All providers failed
+  throw lastError || new Error('ALL_PROVIDERS_FAILED')
 }
 
 export function hasAIProvider(): boolean {
-  return getProvider().type !== null
+  return getAvailableProviders().length > 0
 }

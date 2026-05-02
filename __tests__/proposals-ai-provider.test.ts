@@ -1,6 +1,28 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { buildPrompt, generateMockDraft } from '@/lib/proposals/prompts'
-import { hasAIProvider } from '@/lib/proposals/ai-provider'
+
+// --- Module-level mocks for SDKs ---
+const mockAnthropicCreate = vi.fn()
+const mockOpenAICreate = vi.fn()
+
+vi.mock('@anthropic-ai/sdk', () => {
+  return {
+    default: class MockAnthropic {
+      messages = { create: mockAnthropicCreate }
+    },
+  }
+})
+
+vi.mock('openai', () => {
+  return {
+    default: class MockOpenAI {
+      chat = { completions: { create: mockOpenAICreate } }
+    },
+  }
+})
+
+// Import after mocks are set up
+import { hasAIProvider, generateDraft } from '@/lib/proposals/ai-provider'
 
 const mockInput = {
   title: 'PPC Campaign Management for B2B SaaS',
@@ -166,9 +188,120 @@ describe('generateMockDraft', () => {
 })
 
 describe('hasAIProvider', () => {
-  it('returns boolean based on env', () => {
-    const result = hasAIProvider()
-    // In test env, no API keys are set, so should be false
-    expect(typeof result).toBe('boolean')
+  const origEnv = { ...process.env }
+
+  afterEach(() => {
+    process.env = { ...origEnv }
+  })
+
+  it('returns false when no keys set', () => {
+    delete process.env.ANTHROPIC_API_KEY
+    delete process.env.OPENAI_API_KEY
+    expect(hasAIProvider()).toBe(false)
+  })
+
+  it('returns true when Anthropic key set', () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    delete process.env.OPENAI_API_KEY
+    expect(hasAIProvider()).toBe(true)
+  })
+
+  it('returns true when OpenAI key set', () => {
+    delete process.env.ANTHROPIC_API_KEY
+    process.env.OPENAI_API_KEY = 'test-key'
+    expect(hasAIProvider()).toBe(true)
+  })
+
+  it('returns true when both keys set', () => {
+    process.env.ANTHROPIC_API_KEY = 'test-key'
+    process.env.OPENAI_API_KEY = 'test-key'
+    expect(hasAIProvider()).toBe(true)
+  })
+})
+
+describe('generateDraft failover', () => {
+  const origEnv = { ...process.env }
+
+  beforeEach(() => {
+    mockAnthropicCreate.mockReset()
+    mockOpenAICreate.mockReset()
+  })
+
+  afterEach(() => {
+    process.env = { ...origEnv }
+  })
+
+  it('throws NO_AI_PROVIDER when no keys set', async () => {
+    delete process.env.ANTHROPIC_API_KEY
+    delete process.env.OPENAI_API_KEY
+    await expect(generateDraft({ prompt: 'test' })).rejects.toThrow('NO_AI_PROVIDER')
+  })
+
+  it('falls back to OpenAI when Anthropic fails and both keys set', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
+    process.env.OPENAI_API_KEY = 'test-openai-key'
+
+    mockAnthropicCreate.mockRejectedValue(new Error('Anthropic API error'))
+    mockOpenAICreate.mockResolvedValue({
+      choices: [{ message: { content: 'OpenAI fallback draft' } }],
+      usage: { prompt_tokens: 100, completion_tokens: 50 },
+    })
+
+    const result = await generateDraft({ prompt: 'test prompt', timeoutMs: 10000 })
+    expect(result.provider).toBe('openai')
+    expect(result.text).toBe('OpenAI fallback draft')
+    expect(mockAnthropicCreate).toHaveBeenCalledTimes(1)
+    expect(mockOpenAICreate).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to OpenAI on Anthropic timeout when both keys set', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
+    process.env.OPENAI_API_KEY = 'test-openai-key'
+
+    // Anthropic never resolves → will timeout
+    mockAnthropicCreate.mockReturnValue(new Promise(() => {}))
+    mockOpenAICreate.mockResolvedValue({
+      choices: [{ message: { content: 'OpenAI after timeout' } }],
+      usage: { prompt_tokens: 80, completion_tokens: 40 },
+    })
+
+    const result = await generateDraft({ prompt: 'test prompt', timeoutMs: 500 })
+    expect(result.provider).toBe('openai')
+    expect(result.text).toBe('OpenAI after timeout')
+  })
+
+  it('throws when only Anthropic key set and it fails (route falls to mock)', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
+    delete process.env.OPENAI_API_KEY
+
+    mockAnthropicCreate.mockRejectedValue(new Error('Anthropic API error'))
+
+    await expect(generateDraft({ prompt: 'test', timeoutMs: 5000 })).rejects.toThrow('Anthropic API error')
+  })
+
+  it('uses Anthropic first when both keys set and it succeeds', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
+    process.env.OPENAI_API_KEY = 'test-openai-key'
+
+    mockAnthropicCreate.mockResolvedValue({
+      content: [{ type: 'text', text: 'Anthropic draft' }],
+      usage: { input_tokens: 100, output_tokens: 50 },
+    })
+
+    const result = await generateDraft({ prompt: 'test prompt', timeoutMs: 10000 })
+    expect(result.provider).toBe('anthropic')
+    expect(result.text).toBe('Anthropic draft')
+    expect(mockAnthropicCreate).toHaveBeenCalledTimes(1)
+    expect(mockOpenAICreate).not.toHaveBeenCalled()
+  })
+
+  it('throws when both providers fail', async () => {
+    process.env.ANTHROPIC_API_KEY = 'test-anthropic-key'
+    process.env.OPENAI_API_KEY = 'test-openai-key'
+
+    mockAnthropicCreate.mockRejectedValue(new Error('Anthropic down'))
+    mockOpenAICreate.mockRejectedValue(new Error('OpenAI down'))
+
+    await expect(generateDraft({ prompt: 'test', timeoutMs: 5000 })).rejects.toThrow('OpenAI down')
   })
 })
