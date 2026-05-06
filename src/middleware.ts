@@ -10,10 +10,16 @@ export async function middleware(request: NextRequest) {
 
   const host = request.headers.get('host') || ''
 
-  // Supabase PKCE flow sends ?code= to site_url root — redirect to auth callback
-  if (request.nextUrl.pathname === '/' && request.nextUrl.searchParams.get('code')) {
+  // Supabase PKCE / email OTP flows can send auth params to site_url root —
+  // normalize them to the callback route without dropping next/type metadata.
+  if (
+    request.nextUrl.pathname === '/' &&
+    (request.nextUrl.searchParams.get('code') || request.nextUrl.searchParams.get('token_hash'))
+  ) {
     const callbackUrl = new URL('/auth/callback', request.url)
-    callbackUrl.searchParams.set('code', request.nextUrl.searchParams.get('code')!)
+    request.nextUrl.searchParams.forEach((value, key) => {
+      callbackUrl.searchParams.set(key, value)
+    })
     return NextResponse.redirect(callbackUrl)
   }
 
