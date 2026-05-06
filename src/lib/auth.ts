@@ -31,22 +31,19 @@ export async function getUser(options: AuthReadOptions = {}) {
   return user
 }
 
-export async function signInWithMagicLink(email: string, next = '/dashboard') {
+export async function signInWithPassword(email: string, password: string) {
   const supabase = await createSupabaseServerClient()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-  const redirectUrl = new URL('/auth/callback', siteUrl)
-  redirectUrl.searchParams.set('next', getSafeRedirectPath(next))
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
-    options: {
-      emailRedirectTo: redirectUrl.toString(),
-    },
+    password,
   })
+
   if (error) {
-    console.error('Error sending magic link:', error.message)
-    return { error: error.message }
+    console.error('Error signing in with password:', error.message)
+    return { error: 'Correo o contraseña incorrectos.' }
   }
+
   return { error: null }
 }
 
