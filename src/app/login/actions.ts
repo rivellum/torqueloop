@@ -1,7 +1,7 @@
 'use server'
 
-import { signInWithMagicLink } from '@/lib/auth'
+import { signInWithPassword } from '@/lib/auth'
 
-export async function sendMagicLink(email: string, next = '/dashboard') {
-  return signInWithMagicLink(email, next)
+export async function loginWithPassword(email: string, password: string) {
+  return signInWithPassword(email, password)
 }
