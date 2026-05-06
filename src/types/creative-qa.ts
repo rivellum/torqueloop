@@ -1,11 +1,36 @@
 /**
  * TorqueLoop Creative QA / Congruency Engine — Types
  *
- * Defines the score card, individual check results, and input types
- * for the automated quality-assurance pipeline.
+ * This file contains both the API pipeline score-card shape and the dashboard
+ * display shape used by the existing creative QA card.
  */
 
-// ── Individual Check Result ──
+// ── Dashboard display model ──
+export type QADimensionKey =
+  | 'voice_text_sync'
+  | 'timing_adjustment'
+  | 'brand_presence'
+  | 'audio_levels'
+  | 'typography_congruence'
+  | 'pivot_clarity'
+  | 'persona_alignment'
+
+export interface QAScoreData {
+  dimensions: Record<QADimensionKey, number>
+  overall: number
+}
+
+export const QA_DIMENSION_LABELS: Record<QADimensionKey, string> = {
+  voice_text_sync: 'Sincronización Voz-Texto',
+  timing_adjustment: 'Ajuste de Tiempo',
+  brand_presence: 'Presencia de Marca',
+  audio_levels: 'Niveles de Audio',
+  typography_congruence: 'Congruencia Tipográfica',
+  pivot_clarity: 'Claridad del Pivot',
+  persona_alignment: 'Ajuste de Persona',
+}
+
+// ── API pipeline model ──
 export interface QACheckResult {
   /** Numeric score (0-10) */
   score: number
@@ -15,7 +40,6 @@ export interface QACheckResult {
   meta?: Record<string, unknown>
 }
 
-// ── The 7 Checks ──
 export interface QAScoreChecks {
   voTextSync: QACheckResult
   timingFit: QACheckResult
@@ -26,7 +50,6 @@ export interface QAScoreChecks {
   personaFit: QACheckResult
 }
 
-// ── Full Score Card ──
 export interface QAScoreCard {
   /** Weighted average of all checks (0-10) */
   overallScore: number
@@ -38,7 +61,6 @@ export interface QAScoreCard {
   recommendations: string[]
 }
 
-// ── API Request Body ──
 export interface QAScoreRequest {
   /** UUID of the creative to score */
   creativeId: string
@@ -46,15 +68,13 @@ export interface QAScoreRequest {
   personaDescription?: string
 }
 
-// ── Text Card (from creative content JSONB) ──
 export interface TextCard {
   text: string
-  start: number    // seconds
-  end: number      // seconds
-  style?: string   // font / colour descriptor
+  start: number
+  end: number
+  style?: string
 }
 
-// ── Creative Row (subset we care about) ──
 export interface CreativeRow {
   id: string
   type: 'video' | 'image'
@@ -71,7 +91,6 @@ export interface CreativeRow {
   created_at: string
 }
 
-// ── Check name union (for logging) ──
 export type QACheckName =
   | 'voTextSync'
   | 'timingFit'
@@ -81,16 +100,14 @@ export type QACheckName =
   | 'pivotClarity'
   | 'personaFit'
 
-// ── Weights for overall score calculation ──
 export const QA_CHECK_WEIGHTS: Record<QACheckName, number> = {
-  voTextSync:     1.0,
-  timingFit:      1.0,
-  brandPresence:  1.0,
-  audioLevels:    0.8,
+  voTextSync: 1.0,
+  timingFit: 1.0,
+  brandPresence: 1.0,
+  audioLevels: 0.8,
   fontCongruency: 0.9,
-  pivotClarity:   1.0,
-  personaFit:     1.0,
+  pivotClarity: 1.0,
+  personaFit: 1.0,
 }
 
-/** Minimum overall score required for approval */
 export const APPROVAL_THRESHOLD = 7.0

@@ -53,6 +53,9 @@ export interface LPBranding {
   /** Logo URL or text fallback */
   logoUrl?: string
   logoText?: string
+  /** Partner/co-brand logo URL (e.g., GNP) */
+  partnerLogoUrl?: string
+  partnerLogoAlt?: string
 
   /** Color palette (hex values) */
   colors: {
