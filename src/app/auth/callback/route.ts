@@ -1,11 +1,12 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getSafeRedirectPath } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  const next = getSafeRedirectPath(searchParams.get('next'), '/dashboard')
 
   if (code) {
     const cookieStore = await cookies()

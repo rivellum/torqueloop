@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import LoginPage from '@/app/login/page'
+import LoginForm from '@/app/login/login-form'
 
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
@@ -18,13 +18,13 @@ import { sendMagicLink } from '@/app/login/actions'
 
 const mockSendMagicLink = vi.mocked(sendMagicLink)
 
-describe('LoginPage', () => {
+describe('LoginForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('renders the login form with Spanish text', () => {
-    render(<LoginPage />)
+    render(<LoginForm />)
 
     expect(screen.getByText('Inicia sesión')).toBeInTheDocument()
     expect(screen.getByLabelText('Correo electrónico')).toBeInTheDocument()
@@ -34,7 +34,7 @@ describe('LoginPage', () => {
   })
 
   it('renders the TorqueLoop logo', () => {
-    render(<LoginPage />)
+    render(<LoginForm />)
     expect(screen.getByText('TL')).toBeInTheDocument()
   })
 
@@ -44,7 +44,7 @@ describe('LoginPage', () => {
     // Never-resolving promise to keep loading state
     mockSendMagicLink.mockReturnValue(new Promise(() => {}))
 
-    render(<LoginPage />)
+    render(<LoginForm />)
 
     await user.type(screen.getByLabelText('Correo electrónico'), 'test@example.com')
     await user.click(screen.getByRole('button', { name: 'Enviar enlace mágico' }))
@@ -59,7 +59,7 @@ describe('LoginPage', () => {
 
     mockSendMagicLink.mockResolvedValue({ error: null })
 
-    render(<LoginPage />)
+    render(<LoginForm />)
 
     await user.type(screen.getByLabelText('Correo electrónico'), 'user@test.com')
     await user.click(screen.getByRole('button', { name: 'Enviar enlace mágico' }))
@@ -82,7 +82,7 @@ describe('LoginPage', () => {
 
     mockSendMagicLink.mockResolvedValue({ error: 'Correo no válido' })
 
-    render(<LoginPage />)
+    render(<LoginForm />)
 
     await user.type(screen.getByLabelText('Correo electrónico'), 'bad@test.com')
     await user.click(screen.getByRole('button', { name: 'Enviar enlace mágico' }))
@@ -97,7 +97,7 @@ describe('LoginPage', () => {
 
     mockSendMagicLink.mockResolvedValue({ error: null })
 
-    render(<LoginPage />)
+    render(<LoginForm />)
 
     await user.type(screen.getByLabelText('Correo electrónico'), 'user@test.com')
     await user.click(screen.getByRole('button', { name: 'Enviar enlace mágico' }))
@@ -112,8 +112,24 @@ describe('LoginPage', () => {
     expect(screen.getByLabelText('Correo electrónico')).toHaveValue('')
   })
 
+
+  it('passes the continuation path to the magic-link action', async () => {
+    const user = userEvent.setup()
+
+    mockSendMagicLink.mockResolvedValue({ error: null })
+
+    render(<LoginForm next="/dashboard/proposals" />)
+
+    await user.type(screen.getByLabelText('Correo electrónico'), 'user@test.com')
+    await user.click(screen.getByRole('button', { name: 'Enviar enlace mágico' }))
+
+    await waitFor(() => {
+      expect(mockSendMagicLink).toHaveBeenCalledWith('user@test.com', '/dashboard/proposals')
+    })
+  })
+
   it('disables submit button when email is empty', () => {
-    render(<LoginPage />)
+    render(<LoginForm />)
     expect(
       screen.getByRole('button', { name: 'Enviar enlace mágico' })
     ).toBeDisabled()

@@ -2,6 +2,6 @@
 
 import { signInWithMagicLink } from '@/lib/auth'
 
-export async function sendMagicLink(email: string) {
-  return signInWithMagicLink(email)
+export async function sendMagicLink(email: string, next = '/dashboard') {
+  return signInWithMagicLink(email, next)
 }
