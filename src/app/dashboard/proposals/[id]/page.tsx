@@ -9,6 +9,7 @@ import { DraftsPanel } from '@/components/dashboard/drafts-panel'
 import { ReviewPanel } from '@/components/dashboard/review-panel'
 import { OutcomeTracker } from '@/components/dashboard/outcome-tracker'
 import { LeadContext } from '@/components/dashboard/lead-context'
+import { ProposalStatusActions } from '@/components/dashboard/proposal-status-actions'
 
 export default async function OpportunityDetailPage({
   params,
@@ -38,6 +39,9 @@ export default async function OpportunityDetailPage({
     })(),
   ])
   const reviews = reviewsData as { id: string; review_type: string; status: string; comments: string | null; checks: Record<string, boolean>; created_at: string }[]
+  const hasSelectedDraft = drafts.some((draft) => draft.selected)
+  const hasApprovedStrategyLock = reviews.some((review) => review.review_type === 'proposal_strategy_lock' && review.status === 'approved')
+  const hasApprovedSendGate = reviews.some((review) => review.review_type === 'proposal_send_gate' && review.status === 'approved')
 
   const band = score ? getScoreBand(score.total_score) : null
   const bandColors: Record<string, string> = {
@@ -132,6 +136,15 @@ export default async function OpportunityDetailPage({
 
           {/* Drafts */}
           <DraftsPanel opportunityId={opportunity.id} initialDrafts={drafts} opportunityStatus={opportunity.status} />
+
+          <ProposalStatusActions
+            opportunityId={opportunity.id}
+            status={opportunity.status}
+            draftCount={drafts.length}
+            hasSelectedDraft={hasSelectedDraft}
+            hasApprovedStrategyLock={hasApprovedStrategyLock}
+            hasApprovedSendGate={hasApprovedSendGate}
+          />
 
           {/* Human Review */}
           <ReviewPanel

@@ -1,5 +1,6 @@
 "use client"
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
   ArrowRight, Zap, Target, BarChart3, Brain, ChevronRight, X, Play,
@@ -138,7 +139,9 @@ export function LandingHero({ onGetStarted }: LandingHeroProps) {
             <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Sign in</Button>
+            <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
+              <Link href="/login?next=/dashboard">Sign in</Link>
+            </Button>
             <Button size="sm" className="gap-1.5" onClick={onGetStarted}>
               Start Free <ArrowRight className="w-3.5 h-3.5" />
             </Button>

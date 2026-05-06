@@ -14,7 +14,7 @@ export default async function DashboardLayout({
   const user = await getUser()
 
   if (!session || !user) {
-    redirect('/login')
+    redirect('/login?next=/dashboard')
   }
 
   // Fetch workspaces on the server
