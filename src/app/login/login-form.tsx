@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { loginWithPassword } from './actions'
@@ -71,7 +72,12 @@ export default function LoginForm({ next = '/dashboard' }: LoginFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Contraseña</Label>
+                <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
