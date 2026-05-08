@@ -70,6 +70,7 @@ export const config = {
      * Match all request paths except for the ones that start with:
      * - login (login page)
      * - auth/callback (OAuth callback)
+     * - forgot-password/reset-password (password recovery)
      * - api (API routes)
      * - aplica (public landing)
      * - lp (public landing pages)

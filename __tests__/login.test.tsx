@@ -113,4 +113,14 @@ describe('LoginForm', () => {
     await user.type(screen.getByLabelText('Correo electrónico'), 'user@test.com')
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeDisabled()
   })
+
+  it('links to the forgot password flow', () => {
+    render(<LoginForm />)
+
+    expect(screen.getByRole('link', { name: '¿Olvidaste tu contraseña?' })).toHaveAttribute(
+      'href',
+      '/forgot-password'
+    )
+  })
+
 })
