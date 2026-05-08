@@ -4,6 +4,8 @@ interface AuthReadOptions {
   logErrors?: boolean
 }
 
+export const PASSWORD_RECOVERY_COOKIE = 'tl_password_recovery'
+
 export function getSafeRedirectPath(next: string | null | undefined, fallback = '/dashboard') {
   if (!next || typeof next !== 'string') return fallback
   if (!next.startsWith('/') || next.startsWith('//')) return fallback

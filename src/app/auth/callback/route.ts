@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
-import { getSafeRedirectPath } from '@/lib/auth'
+import { PASSWORD_RECOVERY_COOKIE, getSafeRedirectPath } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -34,7 +34,19 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      return NextResponse.redirect(new URL(next, request.url))
+      const response = NextResponse.redirect(new URL(next, request.url))
+
+      if (next === '/reset-password') {
+        response.cookies.set(PASSWORD_RECOVERY_COOKIE, '1', {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          maxAge: 60 * 30,
+        })
+      }
+
+      return response
     }
 
     console.error('Auth callback error:', error.message)
