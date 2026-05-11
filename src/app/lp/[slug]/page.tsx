@@ -4,7 +4,7 @@ import { getLandingPageConfig, getAllLandingPageSlugs } from '@/lib/lp-configs'
 import { LandingPage } from '@/components/lp/landing-page'
 
 interface LPPageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 /**
@@ -20,7 +20,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: LPPageProps): Promise<Metadata> {
-  const config = getLandingPageConfig(params.slug)
+  const { slug } = await params
+  const config = getLandingPageConfig(slug)
   if (!config) return {}
 
   return {
@@ -36,8 +37,9 @@ export async function generateMetadata({ params }: LPPageProps): Promise<Metadat
   }
 }
 
-export default function LPPage({ params }: LPPageProps) {
-  const config = getLandingPageConfig(params.slug)
+export default async function LPPage({ params }: LPPageProps) {
+  const { slug } = await params
+  const config = getLandingPageConfig(slug)
 
   if (!config) {
     notFound()
